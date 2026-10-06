@@ -35,7 +35,8 @@ jobs:
             exit 0
           fi
 
-          CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r "${{ github.sha }}")
+          # --root: the first commit of a repository has no parent and would list no files at all.
+          CHANGED_FILES=$(git diff-tree --root --no-commit-id --name-only -r "${{ github.sha }}")
           echo "Changed files in ${{ github.sha }}:"
           echo "$CHANGED_FILES"
 
