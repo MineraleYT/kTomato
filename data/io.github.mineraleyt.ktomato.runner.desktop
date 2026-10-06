@@ -1,0 +1,32 @@
+[Desktop Entry]
+Name=kTomato
+Name[it]=kTomato
+Name[de]=kTomato
+Name[es]=kTomato
+Name[fr]=kTomato
+Comment=Control kTomato Pomodoro timer
+Comment[it]=Controlla il timer Pomodoro kTomato
+Comment[de]=kTomato Pomodoro-Timer steuern
+Comment[es]=Controla el temporizador Pomodoro de kTomato
+Comment[fr]=Contrôler le minuteur Pomodoro kTomato
+X-KDE-ServiceTypes=Plasma/Runner
+Type=Service
+Icon=io.github.mineraleyt.ktomato
+X-KDE-PluginInfo-Author=MinerAle
+X-KDE-PluginInfo-Name=ktomato
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-License=GPL-3.0-or-later
+X-KDE-PluginInfo-EnabledByDefault=true
+X-Plasma-API=DBus
+X-Plasma-DBusRunner-Service=io.github.mineraleyt.ktomato
+X-Plasma-DBusRunner-Path=/krunner
+X-Plasma-Request-Actions-Once=true
+# Only queries starting with one of our keywords (as a whole word) reach the app.
+X-Plasma-Runner-Match-Regex=(?i)^(pomodoro|k?tomato|timer)\\b
+X-Plasma-Runner-Min-Letter-Count=5
+X-Plasma-Runner-Syntaxes=pomodoro,ktomato,pomodoro :q:,ktomato :q:
+X-Plasma-Runner-Syntax-Descriptions=Start, pause, stop or control the kTomato Pomodoro timer
+X-Plasma-Runner-Syntax-Descriptions[it]=Avvia, sospendi, ferma o controlla il timer Pomodoro kTomato
+X-Plasma-Runner-Syntax-Descriptions[de]=kTomato Pomodoro-Timer starten, anhalten, stoppen oder steuern
+X-Plasma-Runner-Syntax-Descriptions[es]=Iniciar, pausar, detener o controlar el temporizador Pomodoro de kTomato
+X-Plasma-Runner-Syntax-Descriptions[fr]=Démarrer, mettre en pause, arrêter ou contrôler le minuteur Pomodoro kTomato

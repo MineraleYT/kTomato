@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 kTomato contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[Global]
+IconName=io.github.mineraleyt.ktomato
+Name=kTomato
+Comment=Pomodoro timer
+DesktopEntry=io.github.mineraleyt.ktomato
+
+[Event/phaseEndedWork]
+Name=Work phase ended
+Comment=A work session has finished, time for a break
+Action=Popup|Sound
+Sound=bell-window-system
+
+[Event/phaseEndedBreak]
+Name=Break phase ended
+Comment=A break has finished, time to get back to work
+Action=Popup|Sound
+Sound=alarm-clock-elapsed
+
+[Event/phaseEnded]
+Name=Phase ended
+Comment=A work or break phase has ended
+Action=Popup|Sound
+Sound=alarm-clock-elapsed
+
+[Event/phaseEndedSilent]
+Name=Phase ended (no sound)
+Comment=A work or break phase has ended, notification without sound
+Action=Popup
+
+[Event/phaseEndedSoundOnly]
+Name=Phase ended (sound only)
+Comment=A work or break phase has ended, sound without notification
+Action=Sound
+Sound=alarm-clock-elapsed

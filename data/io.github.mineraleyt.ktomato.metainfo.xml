@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-FileCopyrightText: 2026 kTomato contributors
+  SPDX-License-Identifier: CC0-1.0
+-->
+<component type="desktop-application">
+  <id>io.github.mineraleyt.ktomato</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>kTomato</name>
+  <summary>Pomodoro timer with configurable presets and session statistics</summary>
+  <description>
+    <p>kTomato is a Pomodoro timer for KDE Plasma 6. It provides configurable work and break phases, timer presets, session history, and productivity statistics.</p>
+    <p>kTomato is an independent project and is not an official KDE application.</p>
+    <ul>
+      <li>Work, short-break, and long-break phases with configurable durations and cycle count</li>
+      <li>User-defined presets with categories, symbolic icons, notification controls, and automatic-start modes</li>
+      <li>Configurable phase-end sounds, one-minute pre-alarm, and optional ambient focus audio</li>
+      <li>Optional screen-sleep inhibition during work phases</li>
+      <li>Session history, daily targets, streak tracking, charts, and CSV export</li>
+      <li>SQLite backup, restore, and session-history management</li>
+      <li>System tray integration and a D-Bus control interface</li>
+      <li>KRunner integration, optional automatic pause when the screen is locked, and task notes for completed sessions</li>
+      <li>Available in English, Italian, German, Spanish and French</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.mineraleyt.ktomato.desktop</launchable>
+  <developer id="io.github.mineraleyt">
+    <name>MinerAle</name>
+  </developer>
+  <url type="homepage">https://github.com/MineraleYT/kTomato</url>
+  <url type="bugtracker">https://github.com/MineraleYT/kTomato/issues</url>
+  <provides>
+    <binary>ktomato</binary>
+  </provides>
+  <releases>
+    <release version="1.0.0" date="2026-10-06">
+      <description>
+        <p>First release of kTomato.</p>
+        <ul>
+          <li>Work, short-break and long-break phases with configurable durations, cycle count and automatic-start modes</li>
+          <li>Timer presets with categories and symbolic icons; ready-made Pomodoro, Deep Work, Study and Quick Sprint timers</li>
+          <li>Breeze-style interface with a Breeze Dark default, a selectable color scheme and keyboard shortcuts</li>
+          <li>Animated Welcome tour and translations in English, Italian, German, Spanish and French</li>
+          <li>Statistics by day, week, month and year, daily goal, streaks, per-timer and per-category breakdowns, and CSV export</li>
+          <li>Task notes for completed work sessions, from the notification or an in-app prompt</li>
+          <li>Notification silencing and screen-sleep inhibition during work phases, with optional automatic pause when the screen is locked</li>
+          <li>Phase-end sounds, a one-minute pre-alarm and optional ambient focus audio</li>
+          <li>System tray with a live countdown icon, start at login and a D-Bus control interface</li>
+          <li>KRunner integration: control the timer, start a timer by name or an ad-hoc session such as "pomodoro 25"</li>
+          <li>Local SQLite storage with backup and restore, a manual update check and a diagnostics report</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

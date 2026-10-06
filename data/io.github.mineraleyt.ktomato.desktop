@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 kTomato contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[Desktop Entry]
+Type=Application
+Name=kTomato
+GenericName=Pomodoro Timer
+Comment=Pomodoro timer with work and break statistics
+Exec=ktomato
+Icon=io.github.mineraleyt.ktomato
+Terminal=false
+Categories=Qt;Utility;
+Keywords=pomodoro;timer;focus;productivity;
+StartupNotify=true

@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/release-flatpak.yml'
+      - 'LICENSES/**'
+      - '.gitignore'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/release-flatpak.yml'
+      - 'LICENSES/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            appstream desktop-file-utils cmake ninja-build g++ gettext dbus-daemon \
+            qt6-base-dev qt6-declarative-dev qt6-tools-dev qt6-tools-dev-tools \
+            qml6-module-org-kde-desktop \
+            libqt6sql6-sqlite extra-cmake-modules \
+            libkirigami-dev libkf6i18n-dev libkf6coreaddons-dev \
+            libkf6colorscheme-dev libkf6notifications-dev libkf6config-dev \
+            libkf6statusnotifieritem-dev
+
+      - name: Validate metadata
+        run: |
+          appstreamcli validate --no-net data/io.github.mineraleyt.ktomato.metainfo.xml
+          desktop-file-validate data/io.github.mineraleyt.ktomato.desktop
+          desktop-file-validate data/io.github.mineraleyt.ktomato.runner.desktop
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+
+      - name: Build
+        run: cmake --build build --parallel 2
+
+      - name: Install to a temporary prefix
+        run: cmake --install build --prefix "$RUNNER_TEMP/ktomato-install"
+
+      - name: Run test suite
+        run: ctest --test-dir build --output-on-failure

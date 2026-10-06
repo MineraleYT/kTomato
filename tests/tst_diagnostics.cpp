@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include <KLocalizedString>
+#include <QSignalSpy>
+#include <QTemporaryDir>
+#include <QTest>
+
+#include "AppSettings.h"
+#include "Autostart.h"
+#include "DataManager.h"
+#include "Database.h"
+#include "Diagnostics.h"
+#include "PresetModel.h"
+#include "PresetRepository.h"
+#include "SessionRepository.h"
+#include "StatsModel.h"
+
+class DiagnosticsTest : public QObject
+{
+    Q_OBJECT
+
+private Q_SLOTS:
+    void initTestCase()
+    {
+        KLocalizedString::setApplicationDomain("ktomato");
+    }
+
+    void init()
+    {
+        Diagnostics::clearLogs();
+    }
+
+    void testRedaction()
+    {
+        const QString home = QDir::homePath();
+        const QString rawPath = home + QStringLiteral("/.local/share/ktomato/ktomato.db");
+        const QString redacted = Diagnostics::redact(rawPath);
+        QVERIFY(!redacted.contains(home));
+        QVERIFY(redacted.startsWith(QStringLiteral("~")));
+
+        const QString genericHome = QStringLiteral("/home/john_doe/Documents/file.txt");
+        QCOMPARE(Diagnostics::redact(genericHome), QStringLiteral("/home/<user>/Documents/file.txt"));
+
+        const QString silverblueHome = QStringLiteral("/var/home/alice/test.log");
+        QCOMPARE(Diagnostics::redact(silverblueHome), QStringLiteral("/var/home/<user>/test.log"));
+    }
+
+    void testLogCapturingAndRedaction()
+    {
+        Diagnostics::clearLogs();
+        const QString home = QDir::homePath();
+
+        Diagnostics::addLogEntry(QStringLiteral("INFO"), QStringLiteral("test"),
+                                 QStringLiteral("Loaded database from %1/ktomato.db").arg(home));
+
+        const QString logs = Diagnostics().recentLogs();
+        QVERIFY(logs.contains(QStringLiteral("[INFO]")));
+        QVERIFY(logs.contains(QStringLiteral("[test]")));
+        QVERIFY(logs.contains(QStringLiteral("~/ktomato.db")));
+        QVERIFY(!logs.contains(home));
+    }
+
+    void testCircularBufferCap()
+    {
+        Diagnostics::clearLogs();
+        for (int i = 0; i < 150; ++i) {
+            Diagnostics::addLogEntry(QStringLiteral("DEBUG"), QStringLiteral("cat"),
+                                     QStringLiteral("Message number %1").arg(i));
+        }
+
+        const QString logs = Diagnostics().recentLogs();
+        const QStringList lines = logs.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QCOMPARE(lines.size(), 120);
+        QVERIFY(lines.first().contains(QStringLiteral("Message number 30")));
+        QVERIFY(lines.last().contains(QStringLiteral("Message number 149")));
+    }
+
+    void testGenerateReport()
+    {
+        Diagnostics diag;
+        const QString report = diag.generateReport();
+
+        QVERIFY(report.contains(QStringLiteral("# kTomato Diagnostics Report")));
+        QVERIFY(report.contains(QStringLiteral("## Application")));
+        QVERIFY(report.contains(QStringLiteral("## System & Desktop")));
+        QVERIFY(report.contains(QStringLiteral("## Configuration")));
+        QVERIFY(report.contains(QStringLiteral("## Storage")));
+        QVERIFY(report.contains(QStringLiteral("## Recent Logs (Redacted)")));
+        QVERIFY(report.contains(QStringLiteral("Version:")));
+    }
+
+    void testExportReport()
+    {
+        Diagnostics diag;
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+
+        const QString targetPath = tempDir.filePath(QStringLiteral("diagnostics.txt"));
+        const QUrl targetUrl = QUrl::fromLocalFile(targetPath);
+
+        QVERIFY(diag.exportReport(targetUrl));
+
+        QFile file(targetPath);
+        QVERIFY(file.open(QIODevice::ReadOnly | QIODevice::Text));
+        const QString content = QString::fromUtf8(file.readAll());
+        QVERIFY(content.startsWith(QStringLiteral("# kTomato Diagnostics Report")));
+    }
+
+    void testRedactsUserAtHostAndUserName()
+    {
+        QCOMPARE(Diagnostics::redact(QStringLiteral("ssh alice@workstation.local failed")),
+                 QStringLiteral("ssh <user>@workstation.local failed"));
+        QCOMPARE(Diagnostics::redact(QStringLiteral("owner /home/bob")), QStringLiteral("owner /home/<user>"));
+
+        const QString user = qEnvironmentVariable("USER");
+        if (user.length() > 2) {
+            const QString redacted = Diagnostics::redact(QStringLiteral("started by %1 today").arg(user));
+            QVERIFY(!redacted.contains(user));
+        }
+    }
+
+    void testExportRejectsNonLocalUrls()
+    {
+        Diagnostics diag;
+        QVERIFY(!diag.exportReport(QUrl(QStringLiteral("https://example.com/report.txt"))));
+        QVERIFY(!diag.lastExportError().isEmpty());
+    }
+
+    void testExportReportsWriteFailures()
+    {
+        Diagnostics diag;
+        QTemporaryDir tempDir;
+        QVERIFY(tempDir.isValid());
+        const QString missingDir = tempDir.filePath(QStringLiteral("no/such/dir/report.txt"));
+        QVERIFY(!diag.exportReport(QUrl::fromLocalFile(missingDir)));
+        QVERIFY(!diag.lastExportError().isEmpty());
+
+        // A success clears the error; a plain absolute path works too.
+        const QString target = tempDir.filePath(QStringLiteral("report.txt"));
+        QVERIFY(diag.exportReport(QUrl(target)));
+        QVERIFY(diag.lastExportError().isEmpty());
+        QVERIFY(QFile::exists(target));
+    }
+
+    void testAttachedReport()
+    {
+        std::unique_ptr<Database> db = std::make_unique<Database>(QStringLiteral(":memory:"));
+        QVERIFY(db->open());
+        SessionRepository sessions(db->connectionName());
+        PresetRepository presetsRepo(db->connectionName());
+        PresetModel presets;
+        StatsModel stats;
+        DataManager dataManager(db.get(), &sessions, &presetsRepo, &presets, &stats);
+        AppSettings settings(KSharedConfig::openConfig(), nullptr, false);
+
+        Diagnostics diag;
+        diag.attach(&settings, &dataManager);
+
+        const QString report = diag.generateReport();
+        QVERIFY(report.contains(QStringLiteral("Total Recorded Sessions: 0")));
+        QVERIFY(report.contains(QStringLiteral("Configured Language: auto")));
+    }
+};
+
+QTEST_MAIN(DiagnosticsTest)
+#include "tst_diagnostics.moc"
