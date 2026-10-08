@@ -5,33 +5,77 @@
 IconName=io.github.mineraleyt.ktomato
 Name=kTomato
 Comment=Pomodoro timer
+Comment[it]=Timer Pomodoro
+Comment[de]=Pomodoro-Timer
+Comment[es]=Temporizador Pomodoro
+Comment[fr]=Minuteur Pomodoro
 DesktopEntry=io.github.mineraleyt.ktomato
 
 [Event/phaseEndedWork]
 Name=Work phase ended
+Name[it]=Fase di lavoro terminata
+Name[de]=Arbeitsphase beendet
+Name[es]=Fase de trabajo terminada
+Name[fr]=Phase de travail terminée
 Comment=A work session has finished, time for a break
+Comment[it]=Una sessione di lavoro è finita, è ora di una pausa
+Comment[de]=Eine Arbeitssitzung ist beendet, Zeit für eine Pause
+Comment[es]=Ha terminado una sesión de trabajo, es hora de un descanso
+Comment[fr]=Une session de travail est terminée, c'est l'heure de faire une pause
 Action=Popup|Sound
 Sound=bell-window-system
 
 [Event/phaseEndedBreak]
 Name=Break phase ended
+Name[it]=Pausa terminata
+Name[de]=Pause beendet
+Name[es]=Descanso terminado
+Name[fr]=Pause terminée
 Comment=A break has finished, time to get back to work
+Comment[it]=La pausa è finita, è ora di tornare al lavoro
+Comment[de]=Die Pause ist vorbei, Zeit, wieder an die Arbeit zu gehen
+Comment[es]=El descanso ha terminado, es hora de volver al trabajo
+Comment[fr]=La pause est terminée, il est temps de se remettre au travail
 Action=Popup|Sound
 Sound=alarm-clock-elapsed
 
 [Event/phaseEnded]
 Name=Phase ended
+Name[it]=Fase terminata
+Name[de]=Phase beendet
+Name[es]=Fase terminada
+Name[fr]=Phase terminée
 Comment=A work or break phase has ended
+Comment[it]=Una fase di lavoro o di pausa è terminata
+Comment[de]=Eine Arbeits- oder Pausenphase ist beendet
+Comment[es]=Ha terminado una fase de trabajo o de descanso
+Comment[fr]=Une phase de travail ou de pause est terminée
 Action=Popup|Sound
 Sound=alarm-clock-elapsed
 
 [Event/phaseEndedSilent]
 Name=Phase ended (no sound)
+Name[it]=Fase terminata (senza suono)
+Name[de]=Phase beendet (ohne Ton)
+Name[es]=Fase terminada (sin sonido)
+Name[fr]=Phase terminée (sans son)
 Comment=A work or break phase has ended, notification without sound
+Comment[it]=Una fase di lavoro o di pausa è terminata, notifica senza suono
+Comment[de]=Eine Arbeits- oder Pausenphase ist beendet, Benachrichtigung ohne Ton
+Comment[es]=Ha terminado una fase de trabajo o de descanso, notificación sin sonido
+Comment[fr]=Une phase de travail ou de pause est terminée, notification sans son
 Action=Popup
 
 [Event/phaseEndedSoundOnly]
 Name=Phase ended (sound only)
+Name[it]=Fase terminata (solo suono)
+Name[de]=Phase beendet (nur Ton)
+Name[es]=Fase terminada (solo sonido)
+Name[fr]=Phase terminée (son uniquement)
 Comment=A work or break phase has ended, sound without notification
+Comment[it]=Una fase di lavoro o di pausa è terminata, suono senza notifica
+Comment[de]=Eine Arbeits- oder Pausenphase ist beendet, Ton ohne Benachrichtigung
+Comment[es]=Ha terminado una fase de trabajo o de descanso, sonido sin notificación
+Comment[fr]=Une phase de travail ou de pause est terminée, son sans notification
 Action=Sound
 Sound=alarm-clock-elapsed
