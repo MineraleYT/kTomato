@@ -49,10 +49,10 @@ See the [user guide](docs/USAGE.md) for the details of each feature.
 
 Releases provide a pre-built x86_64 Flatpak bundle:
 
-1. Download `ktomato-v1.0.1-x86_64.flatpak` from [Releases](https://github.com/MineraleYT/kTomato/releases/latest).
+1. Download the latest version from [Releases](https://github.com/MineraleYT/kTomato/releases/latest).
 2. Install and run it:
    ```sh
-   flatpak install --user ./ktomato-v1.0.1-x86_64.flatpak
+   flatpak install --user ./ktomato-v*-x86_64.flatpak
    flatpak run io.github.mineraleyt.ktomato
    ```
 

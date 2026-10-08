@@ -165,17 +165,16 @@ A release is a version bump, a commit, an annotated tag and a push. The release 
 
 1. `CMakeLists.txt`: `project(kTomato VERSION X.Y.Z …)`.
 2. `data/io.github.mineraleyt.ktomato.metainfo.xml`: add a new `<release version="X.Y.Z" date="YYYY-MM-DD">` **above** the previous ones, with a short list of what changed.
-3. `README.md`: the Flatpak file name in the install steps.
-4. `po/*/ktomato.po`: `Project-Id-Version: kTomato X.Y.Z`.
-5. Regenerate and merge the translations if strings changed (see [Translating](#translating)).
-6. Build and run the whole test suite in a clean environment.
-7. Validate the metadata:
+3. `po/*/ktomato.po`: `Project-Id-Version: kTomato X.Y.Z`.
+4. Regenerate and merge the translations if strings changed (see [Translating](#translating)).
+5. Build and run the whole test suite in a clean environment.
+6. Validate the metadata:
    ```sh
    appstreamcli validate --no-net data/io.github.mineraleyt.ktomato.metainfo.xml
    desktop-file-validate data/io.github.mineraleyt.ktomato.desktop \
        data/io.github.mineraleyt.ktomato.runner.desktop
    ```
-8. Commit (`Release vX.Y.Z: …`), then tag and push:
+7. Commit (`Release vX.Y.Z: …`), then tag and push:
    ```sh
    git tag -a vX.Y.Z -m "kTomato X.Y.Z: …"
    git push origin main vX.Y.Z
