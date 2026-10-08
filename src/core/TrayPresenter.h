@@ -18,3 +18,8 @@ QString formatClock(int totalSeconds);
 
 /// Pure function of the timer state, so the wording and the badge are easy to test.
 TrayStatus describeTray(TimerEngine::State state, TimerEngine::Phase phase, int remainingSeconds, const QString &presetName);
+
+/// The disabled first line of the tray menu, e.g. "Work · 12:30 · Pomodoro". While idle it shows
+/// the pending phase with its full length; while paused the phase gets a "(paused)" suffix.
+/// An empty preset name falls back to the application name.
+QString menuStatusLine(TimerEngine::State state, TimerEngine::Phase phase, int remainingSeconds, const QString &presetName);

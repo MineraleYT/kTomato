@@ -58,3 +58,15 @@ TrayStatus describeTray(TimerEngine::State state, TimerEngine::Phase phase, int 
     }
     return status;
 }
+
+QString menuStatusLine(TimerEngine::State state, TimerEngine::Phase phase, int remainingSeconds, const QString &presetName)
+{
+    QString phaseLabel = phaseName(phase);
+    if (state == TimerEngine::State::Paused) {
+        phaseLabel = i18n("%1 (paused)", phaseLabel);
+    }
+    const QString name = presetName.isEmpty() ? i18n("kTomato") : presetName;
+    return i18nc("@item:inmenu Tray menu status line: %1 is the phase (e.g. Work), %2 the time left (e.g. 12:30), "
+                 "%3 the name of the timer",
+                 "%1 · %2 · %3", phaseLabel, formatClock(remainingSeconds), name);
+}

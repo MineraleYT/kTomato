@@ -14,13 +14,13 @@ Type=Service
 Icon=io.github.mineraleyt.ktomato
 X-KDE-PluginInfo-Author=MinerAle
 X-KDE-PluginInfo-Name=ktomato
-X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-Version=1.0.1
 X-KDE-PluginInfo-License=GPL-3.0-or-later
 X-KDE-PluginInfo-EnabledByDefault=true
 X-Plasma-API=DBus
 X-Plasma-DBusRunner-Service=io.github.mineraleyt.ktomato
 X-Plasma-DBusRunner-Path=/krunner
-X-Plasma-Request-Actions-Once=true
+X-Plasma-Request-Actions-Once=false
 # Only queries starting with one of our keywords (as a whole word) reach the app.
 X-Plasma-Runner-Match-Regex=(?i)^(pomodoro|k?tomato|timer)\\b
 X-Plasma-Runner-Min-Letter-Count=5

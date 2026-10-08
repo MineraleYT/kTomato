@@ -278,6 +278,12 @@ int main(int argc, char *argv[])
         // KRunner runner action to open window
         QObject::connect(krunner, &KRunnerService::openRequested, window, [activateWindow]() { activateWindow(); });
 
+        // The tray menu's Statistics / Settings entries: show the window on that page.
+        QObject::connect(tray, &TrayController::openPageRequested, window, [window, activateWindow](const QString &page) {
+            activateWindow();
+            QMetaObject::invokeMethod(window, "navigate", Q_ARG(QString, page));
+        });
+
         // A click on a notification with nothing more specific to do.
         QObject::connect(notifier, &PhaseNotifier::showWindowRequested, window, [activateWindow]() { activateWindow(); });
 

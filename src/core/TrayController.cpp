@@ -10,6 +10,7 @@
 #include <KStatusNotifierItem>
 
 #include <QAction>
+#include <QActionGroup>
 #include <QCoreApplication>
 #include <QGuiApplication>
 #include <QIcon>
@@ -174,6 +175,15 @@ TrayController::TrayController(TimerEngine *engine, PresetModel *presets, AppSet
     connect(engine, &TimerEngine::remainingChanged, this, &TrayController::refresh);
     connect(presets, &PresetModel::currentChanged, this, &TrayController::refresh);
     connect(presets, &PresetModel::presetChanged, this, &TrayController::refresh);
+    // Anything that can change the list of timers; rebuildTimerMenu() skips unchanged lists.
+    for (auto signal : {&PresetModel::modified, &PresetModel::currentChanged, &PresetModel::countChanged}) {
+        connect(presets, signal, this, &TrayController::rebuildTimerMenu);
+    }
+    connect(presets, &PresetModel::rowsInserted, this, &TrayController::rebuildTimerMenu);
+    connect(presets, &PresetModel::rowsRemoved, this, &TrayController::rebuildTimerMenu);
+    connect(presets, &PresetModel::rowsMoved, this, &TrayController::rebuildTimerMenu);
+    connect(presets, &PresetModel::modelReset, this, &TrayController::rebuildTimerMenu);
+    connect(presets, &PresetModel::dataChanged, this, &TrayController::rebuildTimerMenu);
     connect(settings, &AppSettings::showTrayIconChanged, this, &TrayController::sync);
     connect(settings, &AppSettings::trayAvailableChanged, this, &TrayController::sync);
     connect(settings, &AppSettings::trayBadgeStyleChanged, this, &TrayController::refresh);
@@ -209,6 +219,9 @@ void TrayController::createItem()
     m_item->setStatus(KStatusNotifierItem::Active);
 
     auto *menu = new QMenu; // the item takes ownership
+    m_statusAction = menu->addAction(QString());
+    m_statusAction->setEnabled(false);
+    menu->addSeparator();
     m_toggleAction = menu->addAction(QIcon::fromTheme(QStringLiteral("media-playback-start")), QString(), this, [this]() {
         m_engine->toggle();
     });
@@ -217,6 +230,23 @@ void TrayController::createItem()
     });
     m_skipAction = menu->addAction(QIcon::fromTheme(QStringLiteral("media-skip-forward")), QString(), this, [this]() {
         m_engine->skip();
+    });
+    menu->addSeparator();
+    m_timerMenu = menu->addMenu(QIcon::fromTheme(QStringLiteral("chronometer")), QString());
+    m_timerGroup = new QActionGroup(m_timerMenu);
+    m_timerGroup->setExclusive(true);
+    menu->addSeparator();
+    m_statsAction = menu->addAction(QIcon::fromTheme(QStringLiteral("office-chart-bar")), QString(), this, [this]() {
+        Q_EMIT openPageRequested(QStringLiteral("stats"));
+    });
+    m_settingsAction = menu->addAction(QIcon::fromTheme(QStringLiteral("configure")), QString(), this, [this]() {
+        Q_EMIT openPageRequested(QStringLiteral("settings"));
+    });
+    // No separator here: KStatusNotifierItem puts its own before "Restore/Minimize" and "Quit".
+    // The clock in the status line is refreshed only when the menu opens, never on a tick.
+    connect(menu, &QMenu::aboutToShow, this, [this]() {
+        updateStatusLine();
+        rebuildTimerMenu();
     });
     m_item->setContextMenu(menu);
     // Adds "Restore/Minimize" and "Quit" below our actions.
@@ -240,6 +270,15 @@ void TrayController::retranslate()
     if (!m_item) {
         return;
     }
+    if (m_statsAction) {
+        m_statsAction->setText(i18n("Statistics"));
+    }
+    if (m_settingsAction) {
+        m_settingsAction->setText(i18n("Settings"));
+    }
+    if (m_timerMenu) {
+        m_timerMenu->setTitle(i18n("Timer"));
+    }
     if (m_stopAction) {
         m_stopAction->setText(i18n("Stop"));
     }
@@ -250,7 +289,73 @@ void TrayController::retranslate()
     m_iconKey.clear();
     m_toolTipTitle.clear();
     m_toolTipText.clear();
+    m_menuKey.clear();
+    m_timerMenuKey.clear();
+    rebuildTimerMenu();
     refresh();
+}
+
+void TrayController::updateStatusLine()
+{
+    if (m_statusAction) {
+        const QString text = menuStatusLine(m_engine->state(), m_engine->phase(), m_engine->remainingSeconds(),
+                                            m_presets->currentPreset().name);
+        if (m_statusAction->text() != text) {
+            m_statusAction->setText(text);
+        }
+    }
+}
+
+void TrayController::rebuildTimerMenu()
+{
+    if (!m_item || !m_timerMenu || !m_timerGroup) {
+        return;
+    }
+    const QList<TimerPreset> &list = m_presets->presets();
+    // The key covers what the menu entries are made of, NOT which timer is current: choosing another
+    // timer must only move the check mark. Rebuilding the entries on every choice gave the desktop a
+    // brand-new menu while it still showed the old one, and it ended up with two timers ticked.
+    QString key;
+    for (int row = 0; row < list.size(); ++row) {
+        key += list.at(row).uuid + QLatin1Char('\t') + list.at(row).name + QLatin1Char('\t')
+            + m_presets->data(m_presets->index(row), PresetModel::IconNameRole).toString() + QLatin1Char('\n');
+    }
+    if (key != m_timerMenuKey) {
+        m_timerMenuKey = key;
+        m_timerMenu->clear(); // deletes the old actions, which leaves the group
+        for (int row = 0; row < list.size(); ++row) {
+            const TimerPreset &preset = list.at(row);
+            const QString iconName = m_presets->data(m_presets->index(row), PresetModel::IconNameRole).toString();
+            QAction *action = m_timerMenu->addAction(iconName.isEmpty() ? QIcon() : QIcon::fromTheme(iconName), preset.name);
+            action->setCheckable(true);
+            action->setData(preset.uuid);
+            m_timerGroup->addAction(action);
+            const QString uuid = preset.uuid;
+            connect(action, &QAction::triggered, this, [this, uuid]() {
+                m_presets->setCurrentUuid(uuid);
+                // If the choice was refused the clicked entry must not stay ticked.
+                syncTimerChecks();
+            });
+        }
+    }
+    syncTimerChecks();
+}
+
+void TrayController::syncTimerChecks()
+{
+    if (!m_timerGroup) {
+        return;
+    }
+    // The group is exclusive: ticking the current timer unticks every other one, and only the
+    // actions whose state really changes are announced to the desktop.
+    const QString current = m_presets->currentUuid();
+    const QList<QAction *> actions = m_timerGroup->actions();
+    for (QAction *action : actions) {
+        if (action->data().toString() == current && !action->isChecked()) {
+            action->setChecked(true);
+            return;
+        }
+    }
 }
 
 void TrayController::refresh()
@@ -310,10 +415,27 @@ void TrayController::refresh()
                                                                      : QStringLiteral("media-playback-pause")));
         }
     }
-    if (m_stopAction) {
-        m_stopAction->setEnabled(m_engine->isActive());
-    }
-    if (m_skipAction) {
-        m_skipAction->setEnabled(m_engine->isActive());
+
+    // Everything below changes only with the state, the phase or the timer, not with each tick.
+    const bool active = m_engine->isActive();
+    // While idle the clock is the full phase length and can change with the timer; while a phase
+    // runs it ticks, so it stays out of the key.
+    const QString stableKey = QStringLiteral("%1/%2/%3/%4/%5")
+                                  .arg(int(m_engine->state()))
+                                  .arg(int(m_engine->phase()))
+                                  .arg(m_presets->currentPreset().name, m_presets->currentUuid())
+                                  .arg(active ? -1 : m_engine->remainingSeconds());
+    if (stableKey != m_menuKey) {
+        m_menuKey = stableKey;
+        updateStatusLine();
+        if (m_stopAction) {
+            m_stopAction->setVisible(active);
+        }
+        if (m_skipAction) {
+            m_skipAction->setVisible(active);
+        }
+        if (m_timerMenu) {
+            m_timerMenu->setEnabled(!active);
+        }
     }
 }

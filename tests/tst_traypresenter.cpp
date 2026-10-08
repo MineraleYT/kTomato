@@ -88,6 +88,29 @@ private Q_SLOTS:
             QVERIFY(!s.toolTipText.isEmpty());
         }
     }
+
+    void menuStatusLineShowsPhaseClockAndName()
+    {
+        QCOMPARE(menuStatusLine(State::Working, Phase::Work, 12 * 60 + 30, QStringLiteral("Pomodoro")),
+                 QStringLiteral("Work \u00b7 12:30 \u00b7 Pomodoro"));
+        QCOMPARE(menuStatusLine(State::Working, Phase::ShortBreak, 4 * 60, QStringLiteral("Pomodoro")),
+                 QStringLiteral("Short break \u00b7 4:00 \u00b7 Pomodoro"));
+        QCOMPARE(menuStatusLine(State::Working, Phase::LongBreak, 3600 + 5, QStringLiteral("Deep")),
+                 QStringLiteral("Long break \u00b7 1:00:05 \u00b7 Deep"));
+    }
+
+    void menuStatusLineMarksPausedAndShowsTheNextPhaseWhenIdle()
+    {
+        QCOMPARE(menuStatusLine(State::Paused, Phase::Work, 90, QStringLiteral("Pomodoro")),
+                 QStringLiteral("Work (paused) \u00b7 1:30 \u00b7 Pomodoro"));
+        QCOMPARE(menuStatusLine(State::Idle, Phase::LongBreak, 15 * 60, QStringLiteral("Pomodoro")),
+                 QStringLiteral("Long break \u00b7 15:00 \u00b7 Pomodoro"));
+    }
+
+    void menuStatusLineFallsBackWhenTheNameIsEmpty()
+    {
+        QCOMPARE(menuStatusLine(State::Idle, Phase::Work, 25 * 60, QString()), QStringLiteral("Work \u00b7 25:00 \u00b7 kTomato"));
+    }
 };
 
 QTEST_GUILESS_MAIN(TrayPresenterTest)
