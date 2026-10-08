@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 cmake_minimum_required(VERSION 3.20)
 
-project(kTomato VERSION 1.0.0 LANGUAGES CXX)
+project(kTomato VERSION 1.0.1 LANGUAGES CXX)
 
 set(QT_MIN_VERSION 6.6.0)
 set(KF_MIN_VERSION 6.8.0)  # KLocalization::setupLocalizedContext

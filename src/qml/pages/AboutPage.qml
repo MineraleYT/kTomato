@@ -59,16 +59,28 @@ Kirigami.ScrollablePage {
         wrapMode: Text.WordWrap
     }
 
-    // Set when the user closes the update status message; cleared by every new check.
+    // Set when the user closes the update error message; cleared by every new check.
     property bool updateStatusDismissed: false
+    // A check that found nothing new is acknowledged on the button itself (a green check for a few
+    // seconds) instead of a message box.
+    property bool upToDateShown: false
 
     Connections {
         target: UpdateChecker
         function onStatusChanged() {
             if (UpdateChecker.checking) {
                 aboutPage.updateStatusDismissed = false;
+                aboutPage.upToDateShown = false;
+            } else if (UpdateChecker.status === UpdateChecker.UpToDate) {
+                aboutPage.upToDateShown = true;
+                upToDateTimer.restart();
             }
         }
+    }
+    Timer {
+        id: upToDateTimer
+        interval: 3000
+        onTriggered: aboutPage.upToDateShown = false
     }
 
     ColumnLayout {
@@ -178,13 +190,12 @@ Kirigami.ScrollablePage {
                     }
                 }
 
-                // Inline message for up-to-date or error states
+                // Inline message for the error state only
                 Kirigami.InlineMessage {
                     id: updateStatusMsg
                     Layout.fillWidth: true
                     readonly property bool shouldShow: !aboutPage.updateStatusDismissed
-                                                       && (UpdateChecker.status === UpdateChecker.UpToDate
-                                                           || UpdateChecker.status === UpdateChecker.Error)
+                                                       && UpdateChecker.status === UpdateChecker.Error
                     visible: shouldShow
                     showCloseButton: true
                     // The close button assigns visible = false, which removes the binding: remember the
@@ -195,17 +206,10 @@ Kirigami.ScrollablePage {
                             visible = Qt.binding(() => updateStatusMsg.shouldShow);
                         }
                     }
-                    type: UpdateChecker.status === UpdateChecker.Error
-                        ? Kirigami.MessageType.Warning
-                        : Kirigami.MessageType.Information
-                    text: {
-                        if (UpdateChecker.status === UpdateChecker.UpToDate) {
-                            return i18n("kTomato is up to date (version %1).", UpdateChecker.currentVersion);
-                        } else if (UpdateChecker.status === UpdateChecker.Error) {
-                            return i18n("Could not check for updates: %1", UpdateChecker.errorMessage);
-                        }
-                        return "";
-                    }
+                    type: Kirigami.MessageType.Warning
+                    text: UpdateChecker.status === UpdateChecker.Error
+                        ? i18n("Could not check for updates: %1", UpdateChecker.errorMessage)
+                        : ""
                     actions: [
                         Kirigami.Action {
                             text: i18n("Open Releases Page")
@@ -218,7 +222,8 @@ Kirigami.ScrollablePage {
 
                 QQC2.Button {
                     id: checkUpdatesBtn
-                    icon.name: "system-software-update"
+                    icon.name: aboutPage.upToDateShown ? "dialog-ok-apply" : "system-software-update"
+                    icon.color: aboutPage.upToDateShown ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.textColor
                     text: UpdateChecker.checking ? i18n("Checking for updates…") : i18n("Check for Updates")
                     enabled: !UpdateChecker.checking
                     onClicked: {

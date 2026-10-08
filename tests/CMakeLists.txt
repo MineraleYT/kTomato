@@ -224,9 +224,16 @@ ecm_add_test(tst_diagnostics.cpp
 # The test builds a QGuiApplication (clipboard access): run it without a display, e.g. on CI.
 set_tests_properties(tst_diagnostics PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+ecm_add_test(tst_calendarsync.cpp
+    ${CORE}/CalendarSync.cpp
+    TEST_NAME tst_calendarsync
+    LINK_LIBRARIES Qt6::Test Qt6::Core Qt6::Gui Qt6::Qml Qt6::Network KF6::ConfigCore KF6::I18n
+)
+set_tests_properties(tst_calendarsync PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 foreach(test tst_timerengine tst_focussoundcontroller tst_datamanager tst_presetmodel tst_timerbinding tst_database tst_presetrepository tst_sessions
              tst_silence tst_freedesktopinhibitor tst_autostart tst_appsettings tst_traypresenter
-             tst_powerinhibitor tst_singleinstance tst_statsaggregator tst_csvexporter tst_statsmodel tst_krunnerservice tst_updatechecker tst_screenlockwatcher tst_diagnostics)
+             tst_powerinhibitor tst_singleinstance tst_statsaggregator tst_csvexporter tst_statsmodel tst_krunnerservice tst_updatechecker tst_screenlockwatcher tst_diagnostics tst_calendarsync)
     target_include_directories(${test} PRIVATE ${CORE} ${DB} ${PLATFORM} ${STATS} ${CMAKE_CURRENT_SOURCE_DIR})
 endforeach()
 

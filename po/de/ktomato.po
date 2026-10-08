@@ -3,9 +3,9 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: kTomato 1.0.0\n"
+"Project-Id-Version: kTomato 1.0.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-06 17:30+0200\n"
+"POT-Creation-Date: 2026-10-08 16:42+0200\n"
 "PO-Revision-Date: 2026-10-06 00:20+0200\n"
 "Last-Translator: MinerAle <ale@example.com>\n"
 "Language-Team: German <kde-i18n-de@kde.org>\n"
@@ -15,34 +15,190 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/core/PresetSettings.cpp:13
-msgid "Silence notifications while working"
-msgstr "Benachrichtigungen während der Arbeitsphase stummschalten"
-
-#: src/core/PresetSettings.cpp:14
-msgid ""
-"Turns off all system notifications for the whole work phase and turns them "
-"back on during the break."
+#: src/core/AppSettings.cpp:208
+msgid "Could not set up starting kTomato at login."
 msgstr ""
-"Schaltet alle Systembenachrichtigungen für die gesamte Arbeitsphase stumm "
-"und aktiviert sie während der Pause wieder."
+"Automatischer Start von kTomato beim Anmelden konnte nicht eingerichtet "
+"werden."
 
-#: src/core/PresetSettings.cpp:18
-msgid "Auto-start mode"
-msgstr "Automatischer Startmodus"
+#: src/core/AppSettings.cpp:209
+msgid "Could not remove the entry that starts kTomato at login."
+msgstr "Der Autostart-Eintrag für kTomato konnte nicht entfernt werden."
 
-#: src/core/PresetSettings.cpp:19
-msgid "Choose whether breaks, work phases, or neither start automatically."
-msgstr ""
-"Wählen Sie, ob Pausen, Arbeitsphasen oder keine davon automatisch starten."
+#: src/core/DataManager.cpp:119
+msgid "Could not clear session history."
+msgstr "Der Sitzungsverlauf konnte nicht gelöscht werden."
 
-#: src/core/PresetSettings.cpp:25
-msgid "Play a sound when a phase ends"
-msgstr "Einen Ton abspielen, wenn eine Phase endet"
+#: src/core/DataManager.cpp:125
+msgid "Session history cleared."
+msgstr "Sitzungsverlauf gelöscht."
 
-#: src/core/PresetSettings.cpp:30
-msgid "Show a notification when a phase ends"
-msgstr "Eine Benachrichtigung anzeigen, wenn eine Phase endet"
+#: src/core/DataManager.cpp:133
+msgid "Choose a local file for the backup."
+msgstr "Wählen Sie eine lokale Datei für die Sicherung."
+
+#: src/core/DataManager.cpp:137 src/core/DataManager.cpp:215
+msgid "Choose a backup file other than the active database."
+msgstr "Wählen Sie eine andere Sicherungsdatei als die aktive Datenbank."
+
+#: src/core/DataManager.cpp:144
+msgid "Could not prepare the database for backup: %1"
+msgstr "Die Datenbank konnte nicht für die Sicherung vorbereitet werden: %1"
+
+#: src/core/DataManager.cpp:151
+msgid "Could not create the backup: %1"
+msgstr "Die Sicherung konnte nicht erstellt werden: %1"
+
+#: src/core/DataManager.cpp:158
+msgid "Could not replace the selected backup file."
+msgstr "Die ausgewählte Sicherungsdatei konnte nicht ersetzt werden."
+
+#: src/core/DataManager.cpp:164
+msgid "Could not finish writing the backup file."
+msgstr "Das Schreiben der Sicherungsdatei konnte nicht abgeschlossen werden."
+
+#: src/core/DataManager.cpp:168
+msgid "Database backup created."
+msgstr "Datenbanksicherung erstellt."
+
+#: src/core/DataManager.cpp:175 src/core/DataManager.cpp:194
+msgid "This file is not a kTomato database."
+msgstr "Diese Datei ist keine kTomato-Datenbank."
+
+#: src/core/DataManager.cpp:196
+msgid "This backup was created by a newer version of kTomato."
+msgstr "Diese Sicherung wurde mit einer neueren Version von kTomato erstellt."
+
+#: src/core/DataManager.cpp:211
+msgid "Choose a local backup file."
+msgstr "Wählen Sie eine lokale Sicherungsdatei."
+
+#: src/core/DataManager.cpp:220 src/core/DataManager.cpp:236
+#: src/core/DataManager.cpp:289
+msgid "Could not restore the backup: %1"
+msgstr "Die Sicherung konnte nicht wiederhergestellt werden: %1"
+
+#: src/core/DataManager.cpp:229
+msgid "Could not read the backup file."
+msgstr "Die Sicherungsdatei konnte nicht gelesen werden."
+
+#: src/core/DataManager.cpp:246 src/core/DataManager.cpp:258
+msgid "Could not open the backup: %1"
+msgstr "Die Sicherung konnte nicht geöffnet werden: %1"
+
+#: src/core/DataManager.cpp:300
+msgid "Backup restored."
+msgstr "Sicherung wiederhergestellt."
+
+#: src/core/Diagnostics.cpp:240
+msgid "The report can only be saved to a local file."
+msgstr "Der Bericht kann nur in einer lokalen Datei gespeichert werden."
+
+#: src/core/Diagnostics.cpp:248
+msgid "Could not open %1 for writing: %2"
+msgstr "%1 konnte nicht zum Schreiben geöffnet werden: %2"
+
+#: src/core/Diagnostics.cpp:253 src/stats/StatsModel.cpp:524
+#: src/stats/StatsModel.cpp:529 src/stats/StatsModel.cpp:533
+msgid "Could not write %1: %2"
+msgstr "%1 konnte nicht geschrieben werden: %2"
+
+#: src/core/PhaseNotifier.cpp:20
+msgid "%1 second"
+msgid_plural "%1 seconds"
+msgstr[0] "%1 Sekunde"
+msgstr[1] "%1 Sekunden"
+
+#: src/core/PhaseNotifier.cpp:22
+msgid "%1 minute"
+msgid_plural "%1 minutes"
+msgstr[0] "%1 Minute"
+msgstr[1] "%1 Minuten"
+
+#: src/core/PhaseNotifier.cpp:81
+msgid "Work session finished"
+msgstr "Arbeitsphase abgeschlossen"
+
+#: src/core/PhaseNotifier.cpp:83
+msgid "Long break started: %1."
+msgstr "Lange Pause gestartet: %1."
+
+#: src/core/PhaseNotifier.cpp:84
+msgid "Time for a long break: %1."
+msgstr "Zeit für eine lange Pause: %1."
+
+#: src/core/PhaseNotifier.cpp:86
+msgid "Short break started: %1."
+msgstr "Kurze Pause gestartet: %1."
+
+#: src/core/PhaseNotifier.cpp:87
+msgid "Time for a short break: %1."
+msgstr "Zeit für eine kurze Pause: %1."
+
+#: src/core/PhaseNotifier.cpp:90
+msgid "The next work session has started."
+msgstr "Die nächste Arbeitsphase hat begonnen."
+
+#: src/core/PhaseNotifier.cpp:90
+msgid "Time to start the next work session."
+msgstr "Zeit für die nächste Arbeitsphase."
+
+#: src/core/PhaseNotifier.cpp:93
+msgid "Break is over"
+msgstr "Die Pause ist vorbei"
+
+#: src/core/PhaseNotifier.cpp:94
+msgid "Work session started."
+msgstr "Arbeitsphase gestartet."
+
+#: src/core/PhaseNotifier.cpp:94
+msgid "Time to get back to work."
+msgstr "Zeit, wieder an die Arbeit zu gehen."
+
+#: src/core/PhaseNotifier.cpp:107
+msgid "Log Task"
+msgstr "Aufgabe erfassen"
+
+#: src/core/PhaseNotifier.cpp:108
+msgid "What did you accomplish?"
+msgstr "Was hast du geschafft?"
+
+#: src/core/PhaseNotifier.cpp:109
+msgid "Save"
+msgstr "Speichern"
+
+#: src/core/PhaseNotifier.cpp:129 src/core/TrayController.cpp:247
+#: src/platform/KRunnerService.cpp:63
+msgid "Skip"
+msgstr "Überspringen"
+
+#: src/core/PhaseNotifier.cpp:129
+msgid "Skip Break"
+msgstr "Pause überspringen"
+
+#: src/core/PhaseNotifier.cpp:132
+msgid "Pause Work"
+msgstr "Arbeit anhalten"
+
+#: src/core/PhaseNotifier.cpp:132
+msgid "Pause Break"
+msgstr "Pause anhalten"
+
+#: src/core/PhaseNotifier.cpp:142
+msgid "Start Long Break"
+msgstr "Lange Pause starten"
+
+#: src/core/PhaseNotifier.cpp:145
+msgid "Start Short Break"
+msgstr "Kurze Pause starten"
+
+#: src/core/PhaseNotifier.cpp:148
+msgid "Start Work"
+msgstr "Arbeit starten"
+
+#: src/core/PhaseNotifier.cpp:165
+msgid "View"
+msgstr "Anzeigen"
 
 #: src/core/PresetModel.cpp:34
 msgctxt "duration in minutes"
@@ -171,9 +327,58 @@ msgstr "Neuer Timer"
 msgid "%1 (copy)"
 msgstr "%1 (Kopie)"
 
+#: src/core/PresetSettings.cpp:13
+msgid "Silence notifications while working"
+msgstr "Benachrichtigungen während der Arbeitsphase stummschalten"
+
+#: src/core/PresetSettings.cpp:14
+msgid ""
+"Turns off all system notifications for the whole work phase and turns them "
+"back on during the break."
+msgstr ""
+"Schaltet alle Systembenachrichtigungen für die gesamte Arbeitsphase stumm "
+"und aktiviert sie während der Pause wieder."
+
+#: src/core/PresetSettings.cpp:18
+msgid "Auto-start mode"
+msgstr "Automatischer Startmodus"
+
+#: src/core/PresetSettings.cpp:19
+msgid "Choose whether breaks, work phases, or neither start automatically."
+msgstr ""
+"Wählen Sie, ob Pausen, Arbeitsphasen oder keine davon automatisch starten."
+
+#: src/core/PresetSettings.cpp:25
+msgid "Play a sound when a phase ends"
+msgstr "Einen Ton abspielen, wenn eine Phase endet"
+
+#: src/core/PresetSettings.cpp:30
+msgid "Show a notification when a phase ends"
+msgstr "Eine Benachrichtigung anzeigen, wenn eine Phase endet"
+
 #: src/core/SilenceController.cpp:59
 msgid "A focus session is in progress"
 msgstr "Eine Fokussitzung läuft gerade"
+
+#: src/core/TrayController.cpp:244 src/platform/KRunnerService.cpp:64
+msgid "Stop"
+msgstr "Stopp"
+
+#: src/core/TrayController.cpp:301 src/platform/KRunnerService.cpp:62
+msgid "Resume"
+msgstr "Fortsetzen"
+
+#: src/core/TrayController.cpp:303 src/platform/KRunnerService.cpp:60
+msgid "Start"
+msgstr "Starten"
+
+#: src/core/TrayController.cpp:303
+msgid "Start break"
+msgstr "Pause starten"
+
+#: src/core/TrayController.cpp:305 src/platform/KRunnerService.cpp:61
+msgid "Pause"
+msgstr "Pause"
 
 #: src/core/TrayPresenter.cpp:26 src/platform/KRunnerService.cpp:86
 msgid "Short break"
@@ -183,7 +388,7 @@ msgstr "Kurze Pause"
 msgid "Long break"
 msgstr "Lange Pause"
 
-#: src/core/TrayPresenter.cpp:42 src/main.cpp:79
+#: src/core/TrayPresenter.cpp:42 src/main.cpp:80
 msgid "kTomato"
 msgstr "kTomato"
 
@@ -219,96 +424,6 @@ msgstr ""
 msgid "kTomato: %1"
 msgstr "kTomato: %1"
 
-#: src/core/TrayController.cpp:244 src/platform/KRunnerService.cpp:64
-msgid "Stop"
-msgstr "Stopp"
-
-#: src/core/TrayController.cpp:247 src/core/PhaseNotifier.cpp:129
-#: src/platform/KRunnerService.cpp:63
-msgid "Skip"
-msgstr "Überspringen"
-
-#: src/core/TrayController.cpp:301 src/platform/KRunnerService.cpp:62
-msgid "Resume"
-msgstr "Fortsetzen"
-
-#: src/core/TrayController.cpp:303 src/platform/KRunnerService.cpp:60
-msgid "Start"
-msgstr "Starten"
-
-#: src/core/TrayController.cpp:303
-msgid "Start break"
-msgstr "Pause starten"
-
-#: src/core/TrayController.cpp:305 src/platform/KRunnerService.cpp:61
-msgid "Pause"
-msgstr "Pause"
-
-#: src/core/DataManager.cpp:119
-msgid "Could not clear session history."
-msgstr "Der Sitzungsverlauf konnte nicht gelöscht werden."
-
-#: src/core/DataManager.cpp:124
-msgid "Session history cleared."
-msgstr "Sitzungsverlauf gelöscht."
-
-#: src/core/DataManager.cpp:132
-msgid "Choose a local file for the backup."
-msgstr "Wählen Sie eine lokale Datei für die Sicherung."
-
-#: src/core/DataManager.cpp:136 src/core/DataManager.cpp:214
-msgid "Choose a backup file other than the active database."
-msgstr "Wählen Sie eine andere Sicherungsdatei als die aktive Datenbank."
-
-#: src/core/DataManager.cpp:143
-msgid "Could not prepare the database for backup: %1"
-msgstr "Die Datenbank konnte nicht für die Sicherung vorbereitet werden: %1"
-
-#: src/core/DataManager.cpp:150
-msgid "Could not create the backup: %1"
-msgstr "Die Sicherung konnte nicht erstellt werden: %1"
-
-#: src/core/DataManager.cpp:157
-msgid "Could not replace the selected backup file."
-msgstr "Die ausgewählte Sicherungsdatei konnte nicht ersetzt werden."
-
-#: src/core/DataManager.cpp:163
-msgid "Could not finish writing the backup file."
-msgstr "Das Schreiben der Sicherungsdatei konnte nicht abgeschlossen werden."
-
-#: src/core/DataManager.cpp:167
-msgid "Database backup created."
-msgstr "Datenbanksicherung erstellt."
-
-#: src/core/DataManager.cpp:174 src/core/DataManager.cpp:193
-msgid "This file is not a kTomato database."
-msgstr "Diese Datei ist keine kTomato-Datenbank."
-
-#: src/core/DataManager.cpp:195
-msgid "This backup was created by a newer version of kTomato."
-msgstr "Diese Sicherung wurde mit einer neueren Version von kTomato erstellt."
-
-#: src/core/DataManager.cpp:210
-msgid "Choose a local backup file."
-msgstr "Wählen Sie eine lokale Sicherungsdatei."
-
-#: src/core/DataManager.cpp:219 src/core/DataManager.cpp:235
-#: src/core/DataManager.cpp:288
-msgid "Could not restore the backup: %1"
-msgstr "Die Sicherung konnte nicht wiederhergestellt werden: %1"
-
-#: src/core/DataManager.cpp:228
-msgid "Could not read the backup file."
-msgstr "Die Sicherungsdatei konnte nicht gelesen werden."
-
-#: src/core/DataManager.cpp:245 src/core/DataManager.cpp:257
-msgid "Could not open the backup: %1"
-msgstr "Die Sicherung konnte nicht geöffnet werden: %1"
-
-#: src/core/DataManager.cpp:298
-msgid "Backup restored."
-msgstr "Sicherung wiederhergestellt."
-
 #: src/core/UpdateChecker.cpp:207
 msgid "Failed to parse release information."
 msgstr "Release-Informationen konnten nicht analysiert werden."
@@ -317,120 +432,186 @@ msgstr "Release-Informationen konnten nicht analysiert werden."
 msgid "No version information found in release."
 msgstr "Keine Versionsinformationen im Release gefunden."
 
-#: src/core/Diagnostics.cpp:218
-msgid "The report can only be saved to a local file."
-msgstr "Der Bericht kann nur in einer lokalen Datei gespeichert werden."
+#: src/core/CalendarSync.cpp:170
+msgid "Focus session"
+msgstr "Fokussitzung"
 
-#: src/core/Diagnostics.cpp:226
-msgid "Could not open %1 for writing: %2"
-msgstr "%1 konnte nicht zum Schreiben geöffnet werden: %2"
-
-#: src/core/Diagnostics.cpp:231 src/stats/StatsModel.cpp:522
-#: src/stats/StatsModel.cpp:527 src/stats/StatsModel.cpp:531
-msgid "Could not write %1: %2"
-msgstr "%1 konnte nicht geschrieben werden: %2"
-
-#: src/core/PhaseNotifier.cpp:20
-msgid "%1 second"
-msgid_plural "%1 seconds"
-msgstr[0] "%1 Sekunde"
-msgstr[1] "%1 Sekunden"
-
-#: src/core/PhaseNotifier.cpp:22
-msgid "%1 minute"
-msgid_plural "%1 minutes"
-msgstr[0] "%1 Minute"
-msgstr[1] "%1 Minuten"
-
-#: src/core/PhaseNotifier.cpp:81
-msgid "Work session finished"
-msgstr "Arbeitsphase abgeschlossen"
-
-#: src/core/PhaseNotifier.cpp:83
-msgid "Long break started: %1."
-msgstr "Lange Pause gestartet: %1."
-
-#: src/core/PhaseNotifier.cpp:84
-msgid "Time for a long break: %1."
-msgstr "Zeit für eine lange Pause: %1."
-
-#: src/core/PhaseNotifier.cpp:86
-msgid "Short break started: %1."
-msgstr "Kurze Pause gestartet: %1."
-
-#: src/core/PhaseNotifier.cpp:87
-msgid "Time for a short break: %1."
-msgstr "Zeit für eine kurze Pause: %1."
-
-#: src/core/PhaseNotifier.cpp:90
-msgid "The next work session has started."
-msgstr "Die nächste Arbeitsphase hat begonnen."
-
-#: src/core/PhaseNotifier.cpp:90
-msgid "Time to start the next work session."
-msgstr "Zeit für die nächste Arbeitsphase."
-
-#: src/core/PhaseNotifier.cpp:93
-msgid "Break is over"
-msgstr "Die Pause ist vorbei"
-
-#: src/core/PhaseNotifier.cpp:94
-msgid "Work session started."
-msgstr "Arbeitsphase gestartet."
-
-#: src/core/PhaseNotifier.cpp:94
-msgid "Time to get back to work."
-msgstr "Zeit, wieder an die Arbeit zu gehen."
-
-#: src/core/PhaseNotifier.cpp:107
-msgid "Log Task"
-msgstr "Aufgabe erfassen"
-
-#: src/core/PhaseNotifier.cpp:108
-msgid "What did you accomplish?"
-msgstr "Was hast du geschafft?"
-
-#: src/core/PhaseNotifier.cpp:109
-msgid "Save"
-msgstr "Speichern"
-
-#: src/core/PhaseNotifier.cpp:129
-msgid "Skip Break"
-msgstr "Pause überspringen"
-
-#: src/core/PhaseNotifier.cpp:132
-msgid "Pause Work"
-msgstr "Arbeit anhalten"
-
-#: src/core/PhaseNotifier.cpp:132
-msgid "Pause Break"
-msgstr "Pause anhalten"
-
-#: src/core/PhaseNotifier.cpp:142
-msgid "Start Long Break"
-msgstr "Lange Pause starten"
-
-#: src/core/PhaseNotifier.cpp:145
-msgid "Start Short Break"
-msgstr "Kurze Pause starten"
-
-#: src/core/PhaseNotifier.cpp:148
-msgid "Start Work"
-msgstr "Arbeit starten"
-
-#: src/core/PhaseNotifier.cpp:165
-msgid "View"
-msgstr "Anzeigen"
-
-#: src/core/AppSettings.cpp:208
-msgid "Could not set up starting kTomato at login."
+#: src/core/CalendarSync.cpp:206
+msgid ""
+"Plain %1 addresses are not allowed because the password would be sent "
+"unencrypted. Use an %2 address."
 msgstr ""
-"Automatischer Start von kTomato beim Anmelden konnte nicht eingerichtet "
-"werden."
+"Einfache %1-Adressen sind nicht erlaubt, da das Passwort unverschlüsselt "
+"gesendet würde. Verwenden Sie eine %2-Adresse."
 
-#: src/core/AppSettings.cpp:209
-msgid "Could not remove the entry that starts kTomato at login."
-msgstr "Der Autostart-Eintrag für kTomato konnte nicht entfernt werden."
+#: src/core/CalendarSync.cpp:208
+msgid "This is not a valid %1 address."
+msgstr "Dies ist keine gültige %1-Adresse."
+
+#: src/core/CalendarSync.cpp:223
+msgid "Please type the full address, starting with %1"
+msgstr "Bitte geben Sie die vollständige Adresse ein, beginnend mit %1"
+
+#: src/core/CalendarSync.cpp:230
+msgid "This is not a valid web address."
+msgstr "Dies ist keine gültige Webadresse."
+
+#: src/core/CalendarSync.cpp:236
+msgid ""
+"Do not put the user name or password in the address; enter them in their own "
+"fields."
+msgstr ""
+"Geben Sie Benutzernamen oder Passwort nicht in der Adresse an, sondern in "
+"den dafür vorgesehenen Feldern."
+
+#: src/core/CalendarSync.cpp:592 src/core/CalendarSync.cpp:980
+msgid "Choose a calendar first."
+msgstr "Wählen Sie zuerst einen Kalender."
+
+#: src/core/CalendarSync.cpp:695 src/core/CalendarSync.cpp:713
+msgid "Login rejected: check username and app password"
+msgstr "Anmeldung abgelehnt: Prüfen Sie Benutzernamen und App-Passwort"
+
+#: src/core/CalendarSync.cpp:698 src/core/CalendarSync.cpp:1114
+msgid "Signed in as %1. Choose a calendar to finish."
+msgstr ""
+"Angemeldet als %1. Wählen Sie einen Kalender, um den Vorgang abzuschließen."
+
+#: src/core/CalendarSync.cpp:700
+msgid "Not configured"
+msgstr "Nicht eingerichtet"
+
+#: src/core/CalendarSync.cpp:703
+msgid "Could not send events to the calendar; trying again later"
+msgstr ""
+"Termine konnten nicht an den Kalender gesendet werden; es wird später erneut "
+"versucht"
+
+#: src/core/CalendarSync.cpp:705
+msgid "Connected as %1"
+msgstr "Verbunden als %1"
+
+#: src/core/CalendarSync.cpp:715
+msgid "Calendar not found"
+msgstr "Kalender nicht gefunden"
+
+#: src/core/CalendarSync.cpp:717
+msgid "Server answered HTTP %1"
+msgstr "Server antwortete mit HTTP %1"
+
+#: src/core/CalendarSync.cpp:719
+msgid "The server could not be reached"
+msgstr "Der Server ist nicht erreichbar"
+
+#: src/core/CalendarSync.cpp:857
+msgid ""
+"Too many calendar events are waiting to be sent: the oldest one was dropped."
+msgstr ""
+"Zu viele Kalendertermine warten auf das Senden: Der älteste wurde verworfen."
+
+#: src/core/CalendarSync.cpp:962
+msgid "The server refused an event (HTTP %1); it was skipped."
+msgstr ""
+"Der Server hat einen Termin abgelehnt (HTTP %1); er wurde übersprungen."
+
+#: src/core/CalendarSync.cpp:989
+msgid "Testing the connection…"
+msgstr "Verbindung wird getestet…"
+
+#: src/core/CalendarSync.cpp:995
+msgid "kTomato connection test"
+msgstr "kTomato-Verbindungstest"
+
+#: src/core/CalendarSync.cpp:1022
+msgid "The connection works, but the test event could not be removed (%1)."
+msgstr ""
+"Die Verbindung funktioniert, aber der Testtermin konnte nicht entfernt "
+"werden (%1)."
+
+#: src/core/CalendarSync.cpp:1024
+msgid "Connection test succeeded"
+msgstr "Verbindungstest erfolgreich"
+
+#: src/core/CalendarSync.cpp:1034
+msgid "Enter the server address, user name and password first."
+msgstr "Geben Sie zuerst Serveradresse, Benutzernamen und Passwort ein."
+
+#: src/core/CalendarSync.cpp:1041
+msgid "Looking for calendars…"
+msgstr "Kalender werden gesucht…"
+
+#: src/core/CalendarSync.cpp:1079 src/core/CalendarSync.cpp:1112
+msgid "No calendars were found at this address."
+msgstr "Unter dieser Adresse wurden keine Kalender gefunden."
+
+#: src/core/CalendarSync.cpp:1127
+msgid "Enter the Nextcloud address first, for example %1"
+msgstr "Geben Sie zuerst die Nextcloud-Adresse ein, zum Beispiel %1"
+
+#: src/core/CalendarSync.cpp:1134
+msgid "Contacting the server…"
+msgstr "Server wird kontaktiert…"
+
+#: src/core/CalendarSync.cpp:1152
+msgid "This does not look like a Nextcloud server."
+msgstr "Dies scheint kein Nextcloud-Server zu sein."
+
+#: src/core/CalendarSync.cpp:1161 src/core/CalendarSync.cpp:1260
+msgid "The server gave an unexpected answer to the login request."
+msgstr "Der Server hat unerwartet auf die Anmeldeanfrage geantwortet."
+
+#: src/core/CalendarSync.cpp:1170
+msgid "The server redirected the login to a different host; it was refused."
+msgstr ""
+"Der Server hat die Anmeldung auf einen anderen Host umgeleitet; dies wurde "
+"abgelehnt."
+
+#: src/core/CalendarSync.cpp:1179
+msgid "Waiting for you to authorize kTomato in the browser…"
+msgstr "Warte darauf, dass Sie kTomato im Browser autorisieren…"
+
+#: src/core/CalendarSync.cpp:1215
+msgid "The login was not completed in time. Please try again."
+msgstr ""
+"Die Anmeldung wurde nicht rechtzeitig abgeschlossen. Bitte versuchen Sie es "
+"erneut."
+
+#: src/core/CalendarSync.cpp:1254
+msgid ""
+"The server returned an address that does not match the one you entered; the "
+"login was refused."
+msgstr ""
+"Der Server hat eine Adresse zurückgegeben, die nicht mit der eingegebenen "
+"übereinstimmt; die Anmeldung wurde abgelehnt."
+
+#: src/main.cpp:82
+msgid "A Pomodoro timer with time statistics"
+msgstr "Ein Pomodoro-Timer mit Zeitstatistiken"
+
+#: src/main.cpp:84
+msgid "© 2026 kTomato contributors"
+msgstr "© 2026 die kTomato-Mitwirkenden"
+
+#: src/main.cpp:89
+msgid "MinerAle"
+msgstr "MinerAle"
+
+#: src/main.cpp:89
+msgid "Maintainer & Developer"
+msgstr "Betreuer und Entwickler"
+
+#: src/main.cpp:90
+msgid "KDE Frameworks"
+msgstr "KDE Frameworks"
+
+#: src/main.cpp:90
+msgid "Libraries and integration APIs used by this application"
+msgstr "Von dieser Anwendung verwendete Bibliotheken und Integrations-APIs"
+
+#: src/main.cpp:99
+msgid "Start hidden in the system tray (used by the login entry)"
+msgstr ""
+"Im Systemabschnitt der Kontrollleiste minimiert starten (beim Anmelden)"
 
 #: src/platform/KRunnerService.cpp:94
 msgid "Start Pomodoro Timer"
@@ -583,203 +764,176 @@ msgstr ""
 "Arbeit: %2\n"
 "Pausen: %3"
 
-#: src/stats/StatsModel.cpp:471
+#: src/stats/StatsModel.cpp:473
 msgid "Untitled Timer"
 msgstr "Unbenannter Timer"
 
-#: src/stats/StatsModel.cpp:473
+#: src/stats/StatsModel.cpp:475
 msgid "Uncategorized"
 msgstr "Ohne Kategorie"
 
-#: src/stats/StatsModel.cpp:475
+#: src/stats/StatsModel.cpp:477
 msgid "Without note"
 msgstr "Ohne Notiz"
 
-#: src/stats/StatsModel.cpp:504
+#: src/stats/StatsModel.cpp:506
 msgid "Statistics can only be exported to a local file."
 msgstr "Statistiken können nur in eine lokale Datei exportiert werden."
 
-#: src/stats/StatsModel.cpp:540
+#: src/stats/StatsModel.cpp:542
 msgid "0m"
 msgstr "0m"
 
-#: src/stats/StatsModel.cpp:548
+#: src/stats/StatsModel.cpp:550
 msgid "%1h %2m"
 msgstr "%1 Std. %2 Min."
 
-#: src/stats/StatsModel.cpp:550
+#: src/stats/StatsModel.cpp:552
 msgid "%1h"
 msgstr "%1 Std."
 
-#: src/stats/StatsModel.cpp:553
+#: src/stats/StatsModel.cpp:555
 #, c-format
 msgid "%1m"
 msgstr "%1m"
 
-#: src/stats/StatsModel.cpp:555
+#: src/stats/StatsModel.cpp:557
 #, c-format
 msgid "%1s"
 msgstr "%1s"
 
-#: src/main.cpp:81
-msgid "A Pomodoro timer with time statistics"
-msgstr "Ein Pomodoro-Timer mit Zeitstatistiken"
+#: src/qml/Main.qml:26
+msgid "[%1] %2 (Paused) — kTomato"
+msgstr "[%1] %2 (Angehalten) — kTomato"
 
-#: src/main.cpp:83
-msgid "© 2026 kTomato contributors"
-msgstr "© 2026 die kTomato-Mitwirkenden"
+#: src/qml/Main.qml:28
+msgid "[%1] %2 — kTomato"
+msgstr "[%1] %2 — kTomato"
 
-#: src/main.cpp:88
-msgid "MinerAle"
-msgstr "MinerAle"
+#: src/qml/Main.qml:103 src/qml/Main.qml:359 src/qml/pages/StatsPage.qml:12
+msgid "Statistics"
+msgstr "Statistiken"
 
-#: src/main.cpp:88
-msgid "Maintainer & Developer"
-msgstr "Betreuer und Entwickler"
-
-#: src/main.cpp:89
-msgid "KDE Frameworks"
-msgstr "KDE Frameworks"
-
-#: src/main.cpp:89
-msgid "Libraries and integration APIs used by this application"
-msgstr "Von dieser Anwendung verwendete Bibliotheken und Integrations-APIs"
-
-#: src/main.cpp:98
-msgid "Start hidden in the system tray (used by the login entry)"
+#: src/qml/Main.qml:294
+msgid ""
+"Your data cannot be saved: the database could not be opened. kTomato is "
+"using a temporary database."
 msgstr ""
-"Im Systemabschnitt der Kontrollleiste minimiert starten (beim Anmelden)"
+"Ihre Daten können nicht gespeichert werden: Die Datenbank konnte nicht "
+"geöffnet werden. kTomato verwendet eine temporäre Datenbank."
 
-#: src/qml/pages/AboutPage.qml:11 src/qml/Main.qml:361
-msgid "About"
-msgstr "Über"
-
-#: src/qml/pages/AboutPage.qml:121 src/qml/Main.qml:346
+#: src/qml/Main.qml:346 src/qml/pages/AboutPage.qml:133
 msgid "Version %1"
 msgstr "Version %1"
 
-#: src/qml/pages/AboutPage.qml:136
+#: src/qml/Main.qml:357 src/qml/pages/TimerPage.qml:11
+#: src/qml/pages/TimerPage.qml:168
+msgid "Timer"
+msgstr "Timer"
+
+#: src/qml/Main.qml:358 src/qml/pages/PresetsPage.qml:11
+#: src/qml/pages/PresetsPage.qml:115
+msgid "Timers"
+msgstr "Timer"
+
+#: src/qml/Main.qml:360 src/qml/pages/AppSettingsPage.qml:13
+msgid "Settings"
+msgstr "Einstellungen"
+
+#: src/qml/Main.qml:361 src/qml/pages/AboutPage.qml:11
+msgid "About"
+msgstr "Über"
+
+#: src/qml/Main.qml:499
+msgid "Work Session Finished"
+msgstr "Arbeitsphase beendet"
+
+#: src/qml/Main.qml:501
+msgid "What did you accomplish during “%1”?"
+msgstr "Was hast du während „%1“ geschafft?"
+
+#: src/qml/Main.qml:502
+msgid "What did you accomplish during this session?"
+msgstr "Was hast du während dieser Sitzung geschafft?"
+
+#: src/qml/Main.qml:513
+msgid "e.g. Refactored auth module, wrote tests…"
+msgstr "z. B. Authentifizierungsmodul refaktoriert, Tests geschrieben…"
+
+#: src/qml/Main.qml:542
+msgid "Save Note"
+msgstr "Notiz speichern"
+
+#: src/qml/Main.qml:597
+msgid "Screen Unlocked"
+msgstr "Bildschirm entsperrt"
+
+#: src/qml/Main.qml:598
+msgid ""
+"The timer was paused while your screen was locked. Would you like to resume?"
+msgstr ""
+"Der Timer wurde pausiert, während der Bildschirm gesperrt war. Möchten Sie "
+"fortfahren?"
+
+#: src/qml/Main.qml:612
+msgid "Keep Paused"
+msgstr "Pausiert lassen"
+
+#: src/qml/pages/AboutPage.qml:148
 msgid "Updates"
 msgstr "Aktualisierungen"
 
-#: src/qml/pages/AboutPage.qml:168
+#: src/qml/pages/AboutPage.qml:180
 msgid "A newer version (%1) of kTomato is available."
 msgstr "Eine neuere Version (%1) von kTomato ist verfügbar."
 
-#: src/qml/pages/AboutPage.qml:174
+#: src/qml/pages/AboutPage.qml:186
 msgid "View Release"
 msgstr "Release anzeigen"
 
-#: src/qml/pages/AboutPage.qml:203
-msgid "kTomato is up to date (version %1)."
-msgstr "kTomato ist auf dem neuesten Stand (Version %1)."
-
-#: src/qml/pages/AboutPage.qml:205
+#: src/qml/pages/AboutPage.qml:211
 msgid "Could not check for updates: %1"
 msgstr "Aktualisierungen konnten nicht gesucht werden: %1"
 
-#: src/qml/pages/AboutPage.qml:211
+#: src/qml/pages/AboutPage.qml:215
 msgid "Open Releases Page"
 msgstr "Release-Seite öffnen"
 
-#: src/qml/pages/AboutPage.qml:222
+#: src/qml/pages/AboutPage.qml:227
 msgid "Checking for updates…"
 msgstr "Nach Aktualisierungen suchen…"
 
-#: src/qml/pages/AboutPage.qml:222
+#: src/qml/pages/AboutPage.qml:227
 msgid "Check for Updates"
 msgstr "Nach Aktualisierungen suchen"
 
-#: src/qml/pages/AboutPage.qml:232
+#: src/qml/pages/AboutPage.qml:237
 msgid "Links"
 msgstr "Links"
 
-#: src/qml/pages/AboutPage.qml:241
+#: src/qml/pages/AboutPage.qml:246
 msgid "Report a bug"
 msgstr "Fehler melden"
 
-#: src/qml/pages/AboutPage.qml:248
+#: src/qml/pages/AboutPage.qml:253
 msgid "Project website"
 msgstr "Projekt-Website"
 
-#: src/qml/pages/AboutPage.qml:255
+#: src/qml/pages/AboutPage.qml:260
 msgid "License & credits"
 msgstr "Lizenz und Danksagungen"
 
-#: src/qml/pages/AboutPage.qml:265
+#: src/qml/pages/AboutPage.qml:270
 msgid "Licensed under GNU General Public License, version 3 or later."
 msgstr "Lizenziert unter der GNU General Public License, Version 3 oder neuer."
 
-#: src/qml/pages/AboutPage.qml:269
+#: src/qml/pages/AboutPage.qml:274
 msgid ""
 "kTomato is an independent project and is not an official KDE application. It "
 "uses KDE Frameworks libraries."
 msgstr ""
 "kTomato ist ein unabhängiges Projekt und keine offizielle KDE-Anwendung. Es "
 "nutzt KDE Frameworks-Bibliotheken."
-
-#: src/qml/pages/TimerPage.qml:11 src/qml/pages/TimerPage.qml:162
-#: src/qml/Main.qml:357
-msgid "Timer"
-msgstr "Timer"
-
-#: src/qml/pages/TimerPage.qml:17
-msgid "The timer was paused because your screen was locked."
-msgstr "Der Timer wurde pausiert, da der Bildschirm gesperrt war."
-
-#: src/qml/pages/TimerPage.qml:28
-msgid "Dismiss"
-msgstr "Verwerfen"
-
-#: src/qml/pages/TimerPage.qml:62
-msgid "Paused"
-msgstr "Angehalten"
-
-#: src/qml/pages/TimerPage.qml:65
-msgid "Ready to focus"
-msgstr "Bereit zum Fokussieren"
-
-#: src/qml/pages/TimerPage.qml:65
-msgid "Time for a break"
-msgstr "Zeit für eine Pause"
-
-#: src/qml/pages/TimerPage.qml:67
-msgid "Focus time"
-msgstr "Fokuszeit"
-
-#: src/qml/pages/TimerPage.qml:67 src/qml/pages/StatsPage.qml:473
-msgid "Break"
-msgstr "Pause"
-
-#: src/qml/pages/TimerPage.qml:97
-msgid "Stop the timer to switch to a different timer."
-msgstr "Stoppen Sie den Timer, um zu einem anderen Timer zu wechseln."
-
-#: src/qml/pages/TimerPage.qml:160
-msgctxt "@item:inlistbox timer name (work minutes)"
-msgid "%1 (%2 min)"
-msgstr "%1 (%2 Min.)"
-
-#: src/qml/pages/TimerPage.qml:228 src/qml/pages/WelcomePage.qml:398
-msgctxt "%1m work, %2m break"
-msgid "%1m / %2m"
-msgstr "%1m / %2m"
-
-#: src/qml/pages/TimerPage.qml:344
-msgid "Cycle %1 of %2"
-msgstr "Zyklus %1 von %2"
-
-#: src/qml/pages/TimerPage.qml:371
-msgid "Daily goal reached! (%1/%2)"
-msgstr "Tagesziel erreicht! (%1/%2)"
-
-#: src/qml/pages/TimerPage.qml:372
-msgid "Today's goal: %1 of %2"
-msgstr "Heutiges Ziel: %1 von %2"
-
-#: src/qml/pages/TimerPage.qml:410
-msgid "Notifications silenced until the break"
-msgstr "Benachrichtigungen bis zur Pause stummgeschaltet"
 
 #: src/qml/pages/PresetEditPage.qml:24
 msgid "Edit Timer"
@@ -805,8 +959,9 @@ msgstr[1] "%1 Minuten"
 msgid "Reset to Defaults"
 msgstr "Auf Standard zurücksetzen"
 
-#: src/qml/pages/PresetEditPage.qml:230 src/qml/pages/AppSettingsPage.qml:70
-#: src/qml/pages/AppSettingsPage.qml:92 src/qml/pages/PresetsPage.qml:93
+#: src/qml/pages/PresetEditPage.qml:230 src/qml/pages/PresetsPage.qml:93
+#: src/qml/pages/AppSettingsPage.qml:147 src/qml/pages/AppSettingsPage.qml:169
+#: src/qml/pages/AppSettingsPage.qml:685
 msgid "Cancel"
 msgstr "Abbrechen"
 
@@ -880,432 +1035,6 @@ msgstr "Nur Pausen"
 msgid "All phases"
 msgstr "Alle Phasen"
 
-#: src/qml/pages/AppSettingsPage.qml:13 src/qml/Main.qml:360
-msgid "Settings"
-msgstr "Einstellungen"
-
-#: src/qml/pages/AppSettingsPage.qml:57
-msgid "Clear session history?"
-msgstr "Sitzungsverlauf löschen?"
-
-#: src/qml/pages/AppSettingsPage.qml:58
-msgid ""
-"This permanently removes all recorded sessions and statistics. Presets and "
-"settings will remain."
-msgstr ""
-"Dadurch werden alle aufgezeichneten Sitzungen und Statistiken dauerhaft "
-"gelöscht. Vorlagen und Einstellungen bleiben erhalten."
-
-#: src/qml/pages/AppSettingsPage.qml:62
-msgid "Clear History"
-msgstr "Verlauf löschen"
-
-#: src/qml/pages/AppSettingsPage.qml:79
-msgid "Restore this backup?"
-msgstr "Diese Sicherung wiederherstellen?"
-
-#: src/qml/pages/AppSettingsPage.qml:80
-msgid ""
-"Restoring replaces your current presets and session history with the "
-"contents of the selected backup."
-msgstr ""
-"Die Wiederherstellung ersetzt Ihre aktuellen Vorlagen und den Verlauf durch "
-"die Inhalte der Sicherung."
-
-#: src/qml/pages/AppSettingsPage.qml:84
-msgid "Restore"
-msgstr "Wiederherstellen"
-
-#: src/qml/pages/AppSettingsPage.qml:232 src/qml/pages/AppSettingsPage.qml:236
-#: src/qml/pages/AppSettingsPage.qml:251 src/qml/pages/WelcomePage.qml:259
-msgid "Language"
-msgstr "Sprache"
-
-#: src/qml/pages/AppSettingsPage.qml:237
-msgid "Choose between the system locale or an explicit language."
-msgstr "Wählen Sie zwischen der Systemsprache oder einer expliziten Sprache."
-
-#: src/qml/pages/AppSettingsPage.qml:243 src/qml/pages/AppSettingsPage.qml:270
-msgid "System default"
-msgstr "Systemstandard"
-
-#: src/qml/pages/AppSettingsPage.qml:258
-msgid "Appearance"
-msgstr "Erscheinungsbild"
-
-#: src/qml/pages/AppSettingsPage.qml:262 src/qml/pages/AppSettingsPage.qml:273
-msgid "Color scheme"
-msgstr "Farbschema"
-
-#: src/qml/pages/AppSettingsPage.qml:268
-msgid "Breeze Dark"
-msgstr "Breeze-Dunkel"
-
-#: src/qml/pages/AppSettingsPage.qml:269
-msgid "Breeze Light"
-msgstr "Breeze-Hell"
-
-#: src/qml/pages/AppSettingsPage.qml:280
-msgid "Startup"
-msgstr "Start"
-
-#: src/qml/pages/AppSettingsPage.qml:284
-msgid "Start kTomato automatically when I log in"
-msgstr "kTomato beim Anmelden automatisch starten"
-
-#: src/qml/pages/AppSettingsPage.qml:285
-msgid ""
-"Starting at login cannot be set up from inside this environment (for example "
-"a sandboxed package). Use your desktop's autostart settings instead."
-msgstr ""
-"Der Autostart beim Anmelden kann in dieser Umgebung (z. B. Sandbox-Paket) "
-"nicht eingerichtet werden. Bitte nutzen Sie die Autostart-Einstellungen des "
-"Systems."
-
-#: src/qml/pages/AppSettingsPage.qml:290
-msgid "Start minimized to the system tray"
-msgstr "Im Systemabschnitt der Kontrollleiste minimiert starten"
-
-#: src/qml/pages/AppSettingsPage.qml:291
-msgid ""
-"When started at login, kTomato opens in the tray without showing its window."
-msgstr ""
-"Beim automatischen Start öffnet sich kTomato im Systemabschnitt, ohne das "
-"Fenster anzuzeigen."
-
-#: src/qml/pages/AppSettingsPage.qml:298
-msgid "System tray"
-msgstr "Systemabschnitt der Kontrollleiste"
-
-#: src/qml/pages/AppSettingsPage.qml:305
-msgid ""
-"No system tray was found on this desktop, so the tray options are not "
-"available and closing the window quits kTomato."
-msgstr ""
-"Auf dieser Arbeitsumgebung wurde kein Systemabschnitt gefunden. Das "
-"Schließen des Fensters beendet kTomato."
-
-#: src/qml/pages/AppSettingsPage.qml:309
-msgid "Show an icon in the system tray"
-msgstr "Ein Symbol im Systemabschnitt der Kontrollleiste anzeigen"
-
-#: src/qml/pages/AppSettingsPage.qml:310
-msgid ""
-"The tray icon shows the remaining time. Click it to show or hide the window; "
-"use its menu to start, pause, stop or quit."
-msgstr ""
-"Das Symbol im Systemabschnitt zeigt die verbleibende Zeit. Klicken Sie "
-"darauf, um das Fenster ein- oder auszublenden; nutzen Sie das Menü zum "
-"Starten, Anhalten, Stoppen oder Beenden."
-
-#: src/qml/pages/AppSettingsPage.qml:315
-msgid "Keep running in the tray when the window is closed"
-msgstr ""
-"Im Systemabschnitt weiterlaufen lassen, wenn das Fenster geschlossen wird"
-
-#: src/qml/pages/AppSettingsPage.qml:320 src/qml/pages/AppSettingsPage.qml:332
-msgid "Badge style"
-msgstr "Badge-Stil"
-
-#: src/qml/pages/AppSettingsPage.qml:327
-msgid "Remaining minutes"
-msgstr "Verbleibende Minuten"
-
-#: src/qml/pages/AppSettingsPage.qml:328
-msgid "Progress pie ring"
-msgstr "Fortschrittskreis"
-
-#: src/qml/pages/AppSettingsPage.qml:329
-msgid "Plain icon"
-msgstr "Einfaches Symbol"
-
-#: src/qml/pages/AppSettingsPage.qml:339
-msgid "Sounds and Notifications"
-msgstr "Klänge und Benachrichtigungen"
-
-#: src/qml/pages/AppSettingsPage.qml:343 src/qml/pages/AppSettingsPage.qml:356
-msgid "Phase sound"
-msgstr "Phasenton"
-
-#: src/qml/pages/AppSettingsPage.qml:349
-msgid "Alarm Clock (Default)"
-msgstr "Wecker (Standard)"
-
-#: src/qml/pages/AppSettingsPage.qml:350 src/qml/pages/AppSettingsPage.qml:396
-msgid "Completion Chime"
-msgstr "Abschlussglocke"
-
-#: src/qml/pages/AppSettingsPage.qml:351
-msgid "Instant Message"
-msgstr "Sofortnachricht"
-
-#: src/qml/pages/AppSettingsPage.qml:352 src/qml/pages/AppSettingsPage.qml:394
-msgid "Information Sound"
-msgstr "Hinweiston"
-
-#: src/qml/pages/AppSettingsPage.qml:353 src/qml/pages/AppSettingsPage.qml:395
-msgid "Bell"
-msgstr "Glocke"
-
-#: src/qml/pages/AppSettingsPage.qml:360 src/qml/pages/AppSettingsPage.qml:404
-msgid "Test"
-msgstr "Testen"
-
-#: src/qml/pages/AppSettingsPage.qml:366 src/qml/pages/AppSettingsPage.qml:373
-msgid "Alert volume"
-msgstr "Lautstärke für Hinweise"
-
-#: src/qml/pages/AppSettingsPage.qml:379 src/qml/pages/AppSettingsPage.qml:448
-#, javascript-format
-msgctxt "volume percentage"
-msgid "%1%"
-msgstr "%1%"
-
-#: src/qml/pages/AppSettingsPage.qml:383
-msgid "Play a warning one minute before a phase ends"
-msgstr "Eine Minute vor Phasenende warnen"
-
-#: src/qml/pages/AppSettingsPage.qml:387 src/qml/pages/AppSettingsPage.qml:400
-msgid "Pre-alarm sound"
-msgstr "Vorwarnton"
-
-#: src/qml/pages/AppSettingsPage.qml:397
-msgid "Alarm Clock"
-msgstr "Wecker"
-
-#: src/qml/pages/AppSettingsPage.qml:413 src/qml/pages/AppSettingsPage.qml:417
-#: src/qml/pages/AppSettingsPage.qml:429
-msgid "Focus sound"
-msgstr "Fokuston"
-
-#: src/qml/pages/AppSettingsPage.qml:423
-msgid "Off"
-msgstr "Aus"
-
-#: src/qml/pages/AppSettingsPage.qml:424
-msgid "Clock tick"
-msgstr "Uhrenticken"
-
-#: src/qml/pages/AppSettingsPage.qml:425
-msgid "Rain"
-msgstr "Regen"
-
-#: src/qml/pages/AppSettingsPage.qml:426
-msgid "White noise"
-msgstr "Weißes Rauschen"
-
-#: src/qml/pages/AppSettingsPage.qml:434 src/qml/pages/AppSettingsPage.qml:442
-msgid "Focus sound volume"
-msgstr "Fokuston-Lautstärke"
-
-#: src/qml/pages/AppSettingsPage.qml:451
-msgid "Preview"
-msgstr "Vorschau"
-
-#: src/qml/pages/AppSettingsPage.qml:459
-msgid "Screen"
-msgstr "Bildschirm"
-
-#: src/qml/pages/AppSettingsPage.qml:463
-msgid "Keep the screen awake during work sessions"
-msgstr "Bildschirm während Arbeitsphasen aktiv halten"
-
-#: src/qml/pages/AppSettingsPage.qml:467
-msgid "Pause timer when screen is locked"
-msgstr "Timer bei Bildschirmsperre anhalten"
-
-#: src/qml/pages/AppSettingsPage.qml:468
-msgid ""
-"Automatically pauses the active work phase when you lock your screen and "
-"prompts to resume when you unlock."
-msgstr ""
-"Pausiert die aktive Arbeitsphase automatisch, wenn der Bildschirm gesperrt "
-"wird, und fragt beim Entsperren nach dem Fortsetzen."
-
-#: src/qml/pages/AppSettingsPage.qml:474
-msgid "Productivity and Goals"
-msgstr "Produktivität und Ziele"
-
-#: src/qml/pages/AppSettingsPage.qml:478 src/qml/pages/AppSettingsPage.qml:484
-msgid "Daily target"
-msgstr "Tagesziel"
-
-#: src/qml/pages/AppSettingsPage.qml:479
-msgid ""
-"Your daily target is shown as an indicator on the timer page and on the "
-"statistics dashboard."
-msgstr ""
-"Ihr Tagesziel wird auf der Timer-Seite und in den Statistiken angezeigt."
-
-#: src/qml/pages/AppSettingsPage.qml:491 src/qml/pages/AppSettingsPage.qml:498
-#: src/qml/pages/StatsPage.qml:404 src/qml/pages/WelcomePage.qml:482
-#: src/qml/pages/WelcomePage.qml:488 src/qml/pages/WelcomePage.qml:505
-#: src/qml/pages/WelcomePage.qml:512
-msgid "Disabled"
-msgstr "Deaktiviert"
-
-#: src/qml/pages/AppSettingsPage.qml:492 src/qml/pages/WelcomePage.qml:513
-msgid "%1 pomodoro / day"
-msgid_plural "%1 pomodoros / day"
-msgstr[0] "%1 Pomodoro / Tag"
-msgstr[1] "%1 Pomodoros / Tag"
-
-#: src/qml/pages/AppSettingsPage.qml:504
-msgid "Protect daily streak over weekends"
-msgstr "Serie über das Wochenende schützen"
-
-#: src/qml/pages/AppSettingsPage.qml:505
-msgid ""
-"When enabled, weekends without recorded sessions do not reset your daily "
-"streak on Monday."
-msgstr ""
-"Wenn aktiviert, setzen Wochenenden ohne erfasste Sitzungen Ihre Serie am "
-"Montag nicht zurück."
-
-#: src/qml/pages/AppSettingsPage.qml:509
-msgid "Prompt for a task note when a work session finishes"
-msgstr "Nach einer Aufgabennotiz fragen, wenn eine Arbeitssitzung endet"
-
-#: src/qml/pages/AppSettingsPage.qml:510
-msgid ""
-"Sends a notification allowing you to record what you worked on. Notes are "
-"saved to session history and exported with CSV reports."
-msgstr ""
-"Sendet eine Benachrichtigung, damit du festhalten kannst, woran du "
-"gearbeitet hast. Notizen werden im Verlauf gespeichert und in CSV-Berichten "
-"exportiert."
-
-#: src/qml/pages/AppSettingsPage.qml:516
-msgid "Data management"
-msgstr "Datenverwaltung"
-
-#: src/qml/pages/AppSettingsPage.qml:520
-msgid "Database: %1"
-msgstr "Datenbank: %1"
-
-#: src/qml/pages/AppSettingsPage.qml:521
-msgid "Stop the active timer before restoring a backup."
-msgstr ""
-"Stoppen Sie den aktiven Timer, bevor Sie eine Sicherung wiederherstellen."
-
-#: src/qml/pages/AppSettingsPage.qml:523
-msgid "Back up…"
-msgstr "Sichern…"
-
-#: src/qml/pages/AppSettingsPage.qml:528
-msgid "Restore…"
-msgstr "Wiederherstellen…"
-
-#: src/qml/pages/AppSettingsPage.qml:535
-msgid "Session history"
-msgstr "Sitzungsverlauf"
-
-#: src/qml/pages/AppSettingsPage.qml:538
-msgid "Clear history…"
-msgstr "Verlauf löschen…"
-
-#: src/qml/pages/AppSettingsPage.qml:549
-msgid "Global Shortcuts and Automation"
-msgstr "Globale Kurzbefehle und Automatisierung"
-
-#: src/qml/pages/AppSettingsPage.qml:553
-msgid "D-Bus API:"
-msgstr "D-Bus-Schnittstelle:"
-
-#: src/qml/pages/AppSettingsPage.qml:554
-msgid ""
-"kTomato exposes a native D-Bus interface at %1. You can bind global keys in "
-"KDE System Settings → Shortcuts to a command like the one below."
-msgstr ""
-"kTomato stellt unter %1 eine native D-Bus-Schnittstelle bereit. Sie können "
-"in den KDE-Systemeinstellungen → Kurzbefehle globale Tastenkürzel mit einem "
-"Befehl wie dem folgenden belegen."
-
-#: src/qml/pages/AppSettingsPage.qml:576 src/qml/pages/AppSettingsPage.qml:579
-msgid "Open Global Shortcuts"
-msgstr "Globale Kurzbefehle öffnen"
-
-#: src/qml/pages/AppSettingsPage.qml:577
-msgid "Available commands: %1."
-msgstr "Verfügbare Befehle: %1."
-
-#: src/qml/pages/AppSettingsPage.qml:587
-msgid "Troubleshooting & Diagnostics"
-msgstr "Fehlerbehebung & Diagnose"
-
-#: src/qml/pages/AppSettingsPage.qml:591
-msgid "Diagnostics:"
-msgstr "Diagnose:"
-
-#: src/qml/pages/AppSettingsPage.qml:592
-msgid ""
-"Generate a redacted report with system information and recent logs to share "
-"when reporting an issue."
-msgstr ""
-"Generieren Sie einen anonymisierten Bericht mit Systeminformationen und "
-"aktuellen Protokollen zur Weitergabe bei Problemmeldungen."
-
-#: src/qml/pages/AppSettingsPage.qml:600 src/qml/pages/AppSettingsPage.qml:711
-msgid "Copy to Clipboard"
-msgstr "In die Zwischenablage kopieren"
-
-#: src/qml/pages/AppSettingsPage.qml:608
-msgid "Export Diagnostics…"
-msgstr "Diagnose exportieren…"
-
-#: src/qml/pages/AppSettingsPage.qml:613
-msgid "View Report…"
-msgstr "Bericht anzeigen…"
-
-#: src/qml/pages/AppSettingsPage.qml:631
-msgid "Diagnostic report copied to clipboard."
-msgstr "Diagnosebericht in die Zwischenablage kopiert."
-
-#: src/qml/pages/AppSettingsPage.qml:633
-msgid "Diagnostic report successfully exported."
-msgstr "Diagnosebericht erfolgreich exportiert."
-
-#: src/qml/pages/AppSettingsPage.qml:637
-msgid "Failed to export diagnostic report."
-msgstr "Fehler beim Exportieren des Diagnoseberichts."
-
-#: src/qml/pages/AppSettingsPage.qml:657
-msgid "Back up kTomato database"
-msgstr "kTomato-Datenbank sichern"
-
-#: src/qml/pages/AppSettingsPage.qml:660 src/qml/pages/AppSettingsPage.qml:668
-msgid "SQLite database (*.db)"
-msgstr "SQLite-Datenbank (*.db)"
-
-#: src/qml/pages/AppSettingsPage.qml:666
-msgid "Choose a kTomato backup"
-msgstr "Eine kTomato-Sicherung auswählen"
-
-#: src/qml/pages/AppSettingsPage.qml:674
-msgid "Export Diagnostics"
-msgstr "Diagnose exportieren"
-
-#: src/qml/pages/AppSettingsPage.qml:677
-msgid "Text files (*.txt)"
-msgstr "Textdateien (*.txt)"
-
-#: src/qml/pages/AppSettingsPage.qml:677 src/qml/pages/StatsPage.qml:30
-msgid "All files (*)"
-msgstr "Alle Dateien (*)"
-
-#: src/qml/pages/AppSettingsPage.qml:690
-msgid "Diagnostics Report"
-msgstr "Diagnosebericht"
-
-#: src/qml/pages/AppSettingsPage.qml:691
-msgid "All personal details and usernames have been redacted."
-msgstr "Alle persönlichen Daten und Benutzernamen wurden anonymisiert."
-
-#: src/qml/pages/PresetsPage.qml:11 src/qml/pages/PresetsPage.qml:115
-#: src/qml/Main.qml:358
-msgid "Timers"
-msgstr "Timer"
-
 #: src/qml/pages/PresetsPage.qml:21 src/qml/pages/PresetsPage.qml:119
 msgid "Add Starter Presets"
 msgstr "Standard-Vorlagen hinzufügen"
@@ -1354,10 +1083,6 @@ msgstr "Duplizieren"
 msgid "The default timer cannot be deleted"
 msgstr "Der Standard-Timer kann nicht gelöscht werden"
 
-#: src/qml/pages/StatsPage.qml:12 src/qml/Main.qml:103 src/qml/Main.qml:359
-msgid "Statistics"
-msgstr "Statistiken"
-
 #: src/qml/pages/StatsPage.qml:19
 msgid "Export CSV…"
 msgstr "CSV exportieren…"
@@ -1373,6 +1098,10 @@ msgstr "Statistiken als CSV exportieren"
 #: src/qml/pages/StatsPage.qml:30
 msgid "CSV files (*.csv)"
 msgstr "CSV-Dateien (*.csv)"
+
+#: src/qml/pages/StatsPage.qml:30 src/qml/pages/AppSettingsPage.qml:1071
+msgid "All files (*)"
+msgstr "Alle Dateien (*)"
 
 #: src/qml/pages/StatsPage.qml:35
 msgid "Statistics successfully exported"
@@ -1457,7 +1186,14 @@ msgstr "Tagesziel"
 msgid "%1 / %2"
 msgstr "%1 / %2"
 
-#: src/qml/pages/StatsPage.qml:412 src/qml/pages/WelcomePage.qml:543
+#: src/qml/pages/StatsPage.qml:404 src/qml/pages/WelcomePage.qml:1470
+#: src/qml/pages/WelcomePage.qml:1476 src/qml/pages/WelcomePage.qml:1493
+#: src/qml/pages/WelcomePage.qml:1500 src/qml/pages/AppSettingsPage.qml:568
+#: src/qml/pages/AppSettingsPage.qml:575
+msgid "Disabled"
+msgstr "Deaktiviert"
+
+#: src/qml/pages/StatsPage.qml:412 src/qml/pages/WelcomePage.qml:1538
 msgid "No daily goal set"
 msgstr "Kein Tagesziel festgelegt"
 
@@ -1489,6 +1225,10 @@ msgstr[1] "Beste Serie: %1 Tage"
 #: src/qml/pages/StatsPage.qml:447
 msgid "Activity"
 msgstr "Aktivität"
+
+#: src/qml/pages/StatsPage.qml:473 src/qml/pages/TimerPage.qml:70
+msgid "Break"
+msgstr "Pause"
 
 #: src/qml/pages/StatsPage.qml:679
 msgid "No activity recorded for this period."
@@ -1525,21 +1265,80 @@ msgctxt "@info sessions • percentage of total"
 msgid "%1 • %2"
 msgstr "%1 • %2"
 
-#: src/qml/pages/WelcomePage.qml:11
+#: src/qml/pages/TimerPage.qml:17
+msgid "The timer was paused because your screen was locked."
+msgstr "Der Timer wurde pausiert, da der Bildschirm gesperrt war."
+
+#: src/qml/pages/TimerPage.qml:28
+msgid "Dismiss"
+msgstr "Verwerfen"
+
+#: src/qml/pages/TimerPage.qml:65
+msgid "Paused"
+msgstr "Angehalten"
+
+#: src/qml/pages/TimerPage.qml:68
+msgid "Ready to focus"
+msgstr "Bereit zum Fokussieren"
+
+#: src/qml/pages/TimerPage.qml:68
+msgid "Time for a break"
+msgstr "Zeit für eine Pause"
+
+#: src/qml/pages/TimerPage.qml:70
+msgid "Focus time"
+msgstr "Fokuszeit"
+
+#: src/qml/pages/TimerPage.qml:103
+msgid "Stop the timer to switch to a different timer."
+msgstr "Stoppen Sie den Timer, um zu einem anderen Timer zu wechseln."
+
+#: src/qml/pages/TimerPage.qml:166
+msgctxt "@item:inlistbox timer name (work minutes)"
+msgid "%1 (%2 min)"
+msgstr "%1 (%2 Min.)"
+
+#: src/qml/pages/TimerPage.qml:234 src/qml/pages/WelcomePage.qml:1158
+msgctxt "%1m work, %2m break"
+msgid "%1m / %2m"
+msgstr "%1m / %2m"
+
+#: src/qml/pages/TimerPage.qml:355
+msgid "Cycle %1 of %2"
+msgstr "Zyklus %1 von %2"
+
+#: src/qml/pages/TimerPage.qml:382
+msgid "Daily goal reached! (%1/%2)"
+msgstr "Tagesziel erreicht! (%1/%2)"
+
+#: src/qml/pages/TimerPage.qml:383
+msgid "Today's goal: %1 of %2"
+msgstr "Heutiges Ziel: %1 von %2"
+
+#: src/qml/pages/TimerPage.qml:421
+msgid "Notifications silenced until the break"
+msgstr "Benachrichtigungen bis zur Pause stummgeschaltet"
+
+#: src/qml/pages/WelcomePage.qml:12
 msgid "Welcome"
 msgstr "Willkommen"
 
-#: src/qml/pages/WelcomePage.qml:226
+#: src/qml/pages/WelcomePage.qml:777
 msgid "Welcome to kTomato"
 msgstr "Willkommen bei kTomato"
 
-#: src/qml/pages/WelcomePage.qml:235
+#: src/qml/pages/WelcomePage.qml:786
 msgid ""
 "An independent Pomodoro timer for KDE Plasma 6 and other Linux desktops."
 msgstr ""
 "Ein unabhängiger Pomodoro-Timer für KDE Plasma 6 und andere Linux-Desktops."
 
-#: src/qml/pages/WelcomePage.qml:299
+#: src/qml/pages/WelcomePage.qml:810 src/qml/pages/AppSettingsPage.qml:309
+#: src/qml/pages/AppSettingsPage.qml:313 src/qml/pages/AppSettingsPage.qml:328
+msgid "Language"
+msgstr "Sprache"
+
+#: src/qml/pages/WelcomePage.qml:850
 msgid ""
 "Boost focus and avoid burnout using structured work intervals and timed "
 "breaks."
@@ -1547,11 +1346,11 @@ msgstr ""
 "Steigern Sie Ihre Konzentration und vermeiden Sie Überarbeitung durch "
 "strukturierte Arbeitsintervalle und Pausen."
 
-#: src/qml/pages/WelcomePage.qml:304
+#: src/qml/pages/WelcomePage.qml:900
 msgid "Plasma"
 msgstr "Plasma"
 
-#: src/qml/pages/WelcomePage.qml:305
+#: src/qml/pages/WelcomePage.qml:901
 msgid ""
 "Native Plasma 6 desktop integration with Breeze design and system tray "
 "controls."
@@ -1559,11 +1358,11 @@ msgstr ""
 "Native Plasma 6-Desktopintegration mit Breeze-Design und Steuerung im "
 "Systemabschnitt."
 
-#: src/qml/pages/WelcomePage.qml:310
+#: src/qml/pages/WelcomePage.qml:934
 msgid "Private"
 msgstr "Privat"
 
-#: src/qml/pages/WelcomePage.qml:311
+#: src/qml/pages/WelcomePage.qml:935
 msgid ""
 "100% private and offline: your timers and productivity stats stay on your "
 "device."
@@ -1571,16 +1370,16 @@ msgstr ""
 "100 % privat und offline: Ihre Timer und Statistiken verbleiben auf Ihrem "
 "Gerät."
 
-#: src/qml/pages/WelcomePage.qml:322
+#: src/qml/pages/WelcomePage.qml:1019
 msgid "Customizable Timer Presets"
 msgstr "Anpassbare Timer-Vorlagen"
 
-#: src/qml/pages/WelcomePage.qml:323
+#: src/qml/pages/WelcomePage.qml:1020
 msgid "Switch between ready-to-use presets or design your own focus routines:"
 msgstr ""
 "Wechseln Sie zwischen fertigen Vorlagen oder erstellen Sie eigene Routinen:"
 
-#: src/qml/pages/WelcomePage.qml:410
+#: src/qml/pages/WelcomePage.qml:1250
 msgid ""
 "You can edit, duplicate, and assign custom symbolic icons to any preset in "
 "the Timers tab."
@@ -1588,11 +1387,11 @@ msgstr ""
 "Im Timer-Reiter können Sie jede Vorlage bearbeiten, duplizieren und mit "
 "Symbolen versehen."
 
-#: src/qml/pages/WelcomePage.qml:426
+#: src/qml/pages/WelcomePage.qml:1278
 msgid "Distraction-Free Focus"
 msgstr "Ablenkungsfreier Fokus"
 
-#: src/qml/pages/WelcomePage.qml:427
+#: src/qml/pages/WelcomePage.qml:1279
 msgid ""
 "During work phases, kTomato can silence desktop notifications and request "
 "that the screen stay awake."
@@ -1600,11 +1399,11 @@ msgstr ""
 "Während der Arbeit kann kTomato Benachrichtigungen stummschalten und den "
 "Bildschirm aktiv halten."
 
-#: src/qml/pages/WelcomePage.qml:437
+#: src/qml/pages/WelcomePage.qml:1289
 msgid "Automatic Do Not Disturb"
 msgstr "Automatisches „Nicht stören“"
 
-#: src/qml/pages/WelcomePage.qml:438
+#: src/qml/pages/WelcomePage.qml:1290
 msgid ""
 "Notifications are silenced during work intervals and safely restored during "
 "breaks."
@@ -1612,11 +1411,11 @@ msgstr ""
 "Benachrichtigungen werden während der Arbeit stummgeschaltet und in den "
 "Pausen wieder aktiviert."
 
-#: src/qml/pages/WelcomePage.qml:443
+#: src/qml/pages/WelcomePage.qml:1296
 msgid "Dynamic Panel Chronometer"
 msgstr "Dynamische Kontrollleistenanzeige"
 
-#: src/qml/pages/WelcomePage.qml:444
+#: src/qml/pages/WelcomePage.qml:1297
 msgid ""
 "A live tray icon shows your phase (Red for work, Green for breaks) with "
 "remaining minutes and circular progress."
@@ -1624,108 +1423,556 @@ msgstr ""
 "Das Symbol im Systemabschnitt zeigt die Phase (Rot für Arbeit, Grün für "
 "Pausen) mit Restzeit und Fortschrittskreis."
 
-#: src/qml/pages/WelcomePage.qml:456
+#: src/qml/pages/WelcomePage.qml:1444
 msgid "Personalize Your Goals"
 msgstr "Ziele personalisieren"
 
-#: src/qml/pages/WelcomePage.qml:457
+#: src/qml/pages/WelcomePage.qml:1445
 msgid "Set your initial daily target. You can adjust this anytime in Settings."
 msgstr ""
 "Legen Sie Ihr erstes Tagesziel fest. Sie können dies jederzeit in den "
 "Einstellungen anpassen."
 
-#: src/qml/pages/WelcomePage.qml:467 src/qml/pages/WelcomePage.qml:479
+#: src/qml/pages/WelcomePage.qml:1455 src/qml/pages/WelcomePage.qml:1467
 msgid "Daily Pomodoro Goal:"
 msgstr "Tägliches Pomodoro-Ziel:"
 
-#: src/qml/pages/WelcomePage.qml:540
+#: src/qml/pages/WelcomePage.qml:1501 src/qml/pages/AppSettingsPage.qml:569
+msgid "%1 pomodoro / day"
+msgid_plural "%1 pomodoros / day"
+msgstr[0] "%1 Pomodoro / Tag"
+msgstr[1] "%1 Pomodoros / Tag"
+
+#: src/qml/pages/WelcomePage.qml:1535
 msgid "%1 pomodoro / day (~%2h focus)"
 msgid_plural "%1 pomodoros / day (~%2h focus)"
 msgstr[0] "%1 Pomodoro / Tag (~%2 Std. Fokus)"
 msgstr[1] "%1 Pomodoros / Tag (~%2 Std. Fokus)"
 
-#: src/qml/pages/WelcomePage.qml:554
+#: src/qml/pages/WelcomePage.qml:1549
 msgid "Protect weekend streak (don't break streak if inactive on weekends)"
 msgstr ""
 "Wochenendserie schützen (Serie bei Inaktivität am Wochenende nicht "
 "unterbrechen)"
 
-#: src/qml/pages/WelcomePage.qml:561
+#: src/qml/pages/WelcomePage.qml:1556
 msgid "Keep running in system tray when window is closed"
 msgstr ""
 "Im Systemabschnitt weiterlaufen lassen, wenn das Fenster geschlossen wird"
 
-#: src/qml/pages/WelcomePage.qml:568
+#: src/qml/pages/WelcomePage.qml:1563
 msgid "Launch kTomato automatically on desktop login"
 msgstr "kTomato beim Anmelden automatisch starten"
 
-#: src/qml/pages/WelcomePage.qml:583
+#: src/qml/pages/WelcomePage.qml:1578
 msgid "Get Started"
 msgstr "Loslegen"
 
-#: src/qml/pages/WelcomePage.qml:608
+#: src/qml/pages/WelcomePage.qml:1631
 msgid "Skip Tour"
 msgstr "Tour überspringen"
 
-#: src/qml/pages/WelcomePage.qml:655
+#: src/qml/pages/WelcomePage.qml:1678
 msgid "Back"
 msgstr "Zurück"
 
-#: src/qml/pages/WelcomePage.qml:664
+#: src/qml/pages/WelcomePage.qml:1687
 msgid "Finish"
 msgstr "Fertigstellen"
 
-#: src/qml/pages/WelcomePage.qml:664
+#: src/qml/pages/WelcomePage.qml:1687
 msgid "Next"
 msgstr "Weiter"
 
-#: src/qml/Main.qml:26
-msgid "[%1] %2 (Paused) — kTomato"
-msgstr "[%1] %2 (Angehalten) — kTomato"
+#: src/qml/pages/AppSettingsPage.qml:134
+msgid "Clear session history?"
+msgstr "Sitzungsverlauf löschen?"
 
-#: src/qml/Main.qml:28
-msgid "[%1] %2 — kTomato"
-msgstr "[%1] %2 — kTomato"
-
-#: src/qml/Main.qml:294
+#: src/qml/pages/AppSettingsPage.qml:135
 msgid ""
-"Your data cannot be saved: the database could not be opened. kTomato is "
-"using a temporary database."
+"This permanently removes all recorded sessions and statistics. Presets and "
+"settings will remain."
 msgstr ""
-"Ihre Daten können nicht gespeichert werden: Die Datenbank konnte nicht "
-"geöffnet werden. kTomato verwendet eine temporäre Datenbank."
+"Dadurch werden alle aufgezeichneten Sitzungen und Statistiken dauerhaft "
+"gelöscht. Vorlagen und Einstellungen bleiben erhalten."
 
-#: src/qml/Main.qml:499
-msgid "Work Session Finished"
-msgstr "Arbeitsphase beendet"
+#: src/qml/pages/AppSettingsPage.qml:139
+msgid "Clear History"
+msgstr "Verlauf löschen"
 
-#: src/qml/Main.qml:501
-msgid "What did you accomplish during “%1”?"
-msgstr "Was hast du während „%1“ geschafft?"
+#: src/qml/pages/AppSettingsPage.qml:156
+msgid "Restore this backup?"
+msgstr "Diese Sicherung wiederherstellen?"
 
-#: src/qml/Main.qml:502
-msgid "What did you accomplish during this session?"
-msgstr "Was hast du während dieser Sitzung geschafft?"
-
-#: src/qml/Main.qml:513
-msgid "e.g. Refactored auth module, wrote tests…"
-msgstr "z. B. Authentifizierungsmodul refaktoriert, Tests geschrieben…"
-
-#: src/qml/Main.qml:542
-msgid "Save Note"
-msgstr "Notiz speichern"
-
-#: src/qml/Main.qml:597
-msgid "Screen Unlocked"
-msgstr "Bildschirm entsperrt"
-
-#: src/qml/Main.qml:598
+#: src/qml/pages/AppSettingsPage.qml:157
 msgid ""
-"The timer was paused while your screen was locked. Would you like to resume?"
+"Restoring replaces your current presets and session history with the "
+"contents of the selected backup."
 msgstr ""
-"Der Timer wurde pausiert, während der Bildschirm gesperrt war. Möchten Sie "
-"fortfahren?"
+"Die Wiederherstellung ersetzt Ihre aktuellen Vorlagen und den Verlauf durch "
+"die Inhalte der Sicherung."
 
-#: src/qml/Main.qml:612
-msgid "Keep Paused"
-msgstr "Pausiert lassen"
+#: src/qml/pages/AppSettingsPage.qml:161
+msgid "Restore"
+msgstr "Wiederherstellen"
+
+#: src/qml/pages/AppSettingsPage.qml:314
+msgid "Choose between the system locale or an explicit language."
+msgstr "Wählen Sie zwischen der Systemsprache oder einer expliziten Sprache."
+
+#: src/qml/pages/AppSettingsPage.qml:320 src/qml/pages/AppSettingsPage.qml:347
+msgid "System default"
+msgstr "Systemstandard"
+
+#: src/qml/pages/AppSettingsPage.qml:335
+msgid "Appearance"
+msgstr "Erscheinungsbild"
+
+#: src/qml/pages/AppSettingsPage.qml:339 src/qml/pages/AppSettingsPage.qml:350
+msgid "Color scheme"
+msgstr "Farbschema"
+
+#: src/qml/pages/AppSettingsPage.qml:345
+msgid "Breeze Dark"
+msgstr "Breeze-Dunkel"
+
+#: src/qml/pages/AppSettingsPage.qml:346
+msgid "Breeze Light"
+msgstr "Breeze-Hell"
+
+#: src/qml/pages/AppSettingsPage.qml:357
+msgid "Startup"
+msgstr "Start"
+
+#: src/qml/pages/AppSettingsPage.qml:361
+msgid "Start kTomato automatically when I log in"
+msgstr "kTomato beim Anmelden automatisch starten"
+
+#: src/qml/pages/AppSettingsPage.qml:362
+msgid ""
+"Starting at login cannot be set up from inside this environment (for example "
+"a sandboxed package). Use your desktop's autostart settings instead."
+msgstr ""
+"Der Autostart beim Anmelden kann in dieser Umgebung (z. B. Sandbox-Paket) "
+"nicht eingerichtet werden. Bitte nutzen Sie die Autostart-Einstellungen des "
+"Systems."
+
+#: src/qml/pages/AppSettingsPage.qml:367
+msgid "Start minimized to the system tray"
+msgstr "Im Systemabschnitt der Kontrollleiste minimiert starten"
+
+#: src/qml/pages/AppSettingsPage.qml:368
+msgid ""
+"When started at login, kTomato opens in the tray without showing its window."
+msgstr ""
+"Beim automatischen Start öffnet sich kTomato im Systemabschnitt, ohne das "
+"Fenster anzuzeigen."
+
+#: src/qml/pages/AppSettingsPage.qml:375
+msgid "System tray"
+msgstr "Systemabschnitt der Kontrollleiste"
+
+#: src/qml/pages/AppSettingsPage.qml:382
+msgid ""
+"No system tray was found on this desktop, so the tray options are not "
+"available and closing the window quits kTomato."
+msgstr ""
+"Auf dieser Arbeitsumgebung wurde kein Systemabschnitt gefunden. Das "
+"Schließen des Fensters beendet kTomato."
+
+#: src/qml/pages/AppSettingsPage.qml:386
+msgid "Show an icon in the system tray"
+msgstr "Ein Symbol im Systemabschnitt der Kontrollleiste anzeigen"
+
+#: src/qml/pages/AppSettingsPage.qml:387
+msgid ""
+"The tray icon shows the remaining time. Click it to show or hide the window; "
+"use its menu to start, pause, stop or quit."
+msgstr ""
+"Das Symbol im Systemabschnitt zeigt die verbleibende Zeit. Klicken Sie "
+"darauf, um das Fenster ein- oder auszublenden; nutzen Sie das Menü zum "
+"Starten, Anhalten, Stoppen oder Beenden."
+
+#: src/qml/pages/AppSettingsPage.qml:392
+msgid "Keep running in the tray when the window is closed"
+msgstr ""
+"Im Systemabschnitt weiterlaufen lassen, wenn das Fenster geschlossen wird"
+
+#: src/qml/pages/AppSettingsPage.qml:397 src/qml/pages/AppSettingsPage.qml:409
+msgid "Badge style"
+msgstr "Badge-Stil"
+
+#: src/qml/pages/AppSettingsPage.qml:404
+msgid "Remaining minutes"
+msgstr "Verbleibende Minuten"
+
+#: src/qml/pages/AppSettingsPage.qml:405
+msgid "Progress pie ring"
+msgstr "Fortschrittskreis"
+
+#: src/qml/pages/AppSettingsPage.qml:406
+msgid "Plain icon"
+msgstr "Einfaches Symbol"
+
+#: src/qml/pages/AppSettingsPage.qml:416
+msgid "Sounds and Notifications"
+msgstr "Klänge und Benachrichtigungen"
+
+#: src/qml/pages/AppSettingsPage.qml:420 src/qml/pages/AppSettingsPage.qml:433
+msgid "Phase sound"
+msgstr "Phasenton"
+
+#: src/qml/pages/AppSettingsPage.qml:426
+msgid "Alarm Clock (Default)"
+msgstr "Wecker (Standard)"
+
+#: src/qml/pages/AppSettingsPage.qml:427 src/qml/pages/AppSettingsPage.qml:473
+msgid "Completion Chime"
+msgstr "Abschlussglocke"
+
+#: src/qml/pages/AppSettingsPage.qml:428
+msgid "Instant Message"
+msgstr "Sofortnachricht"
+
+#: src/qml/pages/AppSettingsPage.qml:429 src/qml/pages/AppSettingsPage.qml:471
+msgid "Information Sound"
+msgstr "Hinweiston"
+
+#: src/qml/pages/AppSettingsPage.qml:430 src/qml/pages/AppSettingsPage.qml:472
+msgid "Bell"
+msgstr "Glocke"
+
+#: src/qml/pages/AppSettingsPage.qml:437 src/qml/pages/AppSettingsPage.qml:481
+#: src/qml/pages/AppSettingsPage.qml:691 src/qml/pages/AppSettingsPage.qml:775
+msgid "Test"
+msgstr "Testen"
+
+#: src/qml/pages/AppSettingsPage.qml:443 src/qml/pages/AppSettingsPage.qml:450
+msgid "Alert volume"
+msgstr "Lautstärke für Hinweise"
+
+#: src/qml/pages/AppSettingsPage.qml:456 src/qml/pages/AppSettingsPage.qml:525
+#, javascript-format
+msgctxt "volume percentage"
+msgid "%1%"
+msgstr "%1%"
+
+#: src/qml/pages/AppSettingsPage.qml:460
+msgid "Play a warning one minute before a phase ends"
+msgstr "Eine Minute vor Phasenende warnen"
+
+#: src/qml/pages/AppSettingsPage.qml:464 src/qml/pages/AppSettingsPage.qml:477
+msgid "Pre-alarm sound"
+msgstr "Vorwarnton"
+
+#: src/qml/pages/AppSettingsPage.qml:474
+msgid "Alarm Clock"
+msgstr "Wecker"
+
+#: src/qml/pages/AppSettingsPage.qml:490 src/qml/pages/AppSettingsPage.qml:494
+#: src/qml/pages/AppSettingsPage.qml:506
+msgid "Focus sound"
+msgstr "Fokuston"
+
+#: src/qml/pages/AppSettingsPage.qml:500
+msgid "Off"
+msgstr "Aus"
+
+#: src/qml/pages/AppSettingsPage.qml:501
+msgid "Clock tick"
+msgstr "Uhrenticken"
+
+#: src/qml/pages/AppSettingsPage.qml:502
+msgid "Rain"
+msgstr "Regen"
+
+#: src/qml/pages/AppSettingsPage.qml:503
+msgid "White noise"
+msgstr "Weißes Rauschen"
+
+#: src/qml/pages/AppSettingsPage.qml:511 src/qml/pages/AppSettingsPage.qml:519
+msgid "Focus sound volume"
+msgstr "Fokuston-Lautstärke"
+
+#: src/qml/pages/AppSettingsPage.qml:528
+msgid "Preview"
+msgstr "Vorschau"
+
+#: src/qml/pages/AppSettingsPage.qml:536
+msgid "Screen"
+msgstr "Bildschirm"
+
+#: src/qml/pages/AppSettingsPage.qml:540
+msgid "Keep the screen awake during work sessions"
+msgstr "Bildschirm während Arbeitsphasen aktiv halten"
+
+#: src/qml/pages/AppSettingsPage.qml:544
+msgid "Pause timer when screen is locked"
+msgstr "Timer bei Bildschirmsperre anhalten"
+
+#: src/qml/pages/AppSettingsPage.qml:545
+msgid ""
+"Automatically pauses the active work phase when you lock your screen and "
+"prompts to resume when you unlock."
+msgstr ""
+"Pausiert die aktive Arbeitsphase automatisch, wenn der Bildschirm gesperrt "
+"wird, und fragt beim Entsperren nach dem Fortsetzen."
+
+#: src/qml/pages/AppSettingsPage.qml:551
+msgid "Productivity and Goals"
+msgstr "Produktivität und Ziele"
+
+#: src/qml/pages/AppSettingsPage.qml:555 src/qml/pages/AppSettingsPage.qml:561
+msgid "Daily target"
+msgstr "Tagesziel"
+
+#: src/qml/pages/AppSettingsPage.qml:556
+msgid ""
+"Your daily target is shown as an indicator on the timer page and on the "
+"statistics dashboard."
+msgstr ""
+"Ihr Tagesziel wird auf der Timer-Seite und in den Statistiken angezeigt."
+
+#: src/qml/pages/AppSettingsPage.qml:581
+msgid "Protect daily streak over weekends"
+msgstr "Serie über das Wochenende schützen"
+
+#: src/qml/pages/AppSettingsPage.qml:582
+msgid ""
+"When enabled, weekends without recorded sessions do not reset your daily "
+"streak on Monday."
+msgstr ""
+"Wenn aktiviert, setzen Wochenenden ohne erfasste Sitzungen Ihre Serie am "
+"Montag nicht zurück."
+
+#: src/qml/pages/AppSettingsPage.qml:586
+msgid "Prompt for a task note when a work session finishes"
+msgstr "Nach einer Aufgabennotiz fragen, wenn eine Arbeitssitzung endet"
+
+#: src/qml/pages/AppSettingsPage.qml:587
+msgid ""
+"Sends a notification allowing you to record what you worked on. Notes are "
+"saved to session history and exported with CSV reports."
+msgstr ""
+"Sendet eine Benachrichtigung, damit du festhalten kannst, woran du "
+"gearbeitet hast. Notizen werden im Verlauf gespeichert und in CSV-Berichten "
+"exportiert."
+
+#: src/qml/pages/AppSettingsPage.qml:594 src/qml/pages/AppSettingsPage.qml:603
+#: src/qml/pages/AppSettingsPage.qml:797 src/qml/pages/AppSettingsPage.qml:806
+msgid "Calendar"
+msgstr "Kalender"
+
+#: src/qml/pages/AppSettingsPage.qml:599
+msgid "Add an event to your calendar each time you finish a work session."
+msgstr ""
+"Fügt Ihrem Kalender nach jeder abgeschlossenen Arbeitssitzung einen Termin "
+"hinzu."
+
+#: src/qml/pages/AppSettingsPage.qml:621 src/qml/pages/AppSettingsPage.qml:631
+msgid "Calendar service"
+msgstr "Kalenderdienst"
+
+#: src/qml/pages/AppSettingsPage.qml:627
+msgid "Nextcloud"
+msgstr "Nextcloud"
+
+#: src/qml/pages/AppSettingsPage.qml:628
+msgid "Custom CalDAV"
+msgstr "Benutzerdefiniertes CalDAV"
+
+#: src/qml/pages/AppSettingsPage.qml:649 src/qml/pages/AppSettingsPage.qml:657
+msgid "Server address"
+msgstr "Serveradresse"
+
+#: src/qml/pages/AppSettingsPage.qml:679
+msgid "Log in"
+msgstr "Anmelden"
+
+#: src/qml/pages/AppSettingsPage.qml:695 src/qml/pages/AppSettingsPage.qml:696
+#: src/qml/pages/AppSettingsPage.qml:779 src/qml/pages/AppSettingsPage.qml:780
+msgid "Test connection"
+msgstr "Verbindung testen"
+
+#: src/qml/pages/AppSettingsPage.qml:706 src/qml/pages/AppSettingsPage.qml:789
+msgid "Disconnect"
+msgstr "Trennen"
+
+#: src/qml/pages/AppSettingsPage.qml:715 src/qml/pages/AppSettingsPage.qml:722
+msgid "Calendar address (CalDAV)"
+msgstr "Kalenderadresse (CalDAV)"
+
+#: src/qml/pages/AppSettingsPage.qml:716
+msgid ""
+"Use the CalDAV address of the calendar. A subscription link ending in .ics "
+"is read-only and cannot receive events."
+msgstr ""
+"Verwenden Sie die CalDAV-Adresse des Kalenders. Ein Abonnement-Link, der "
+"auf .ics endet, ist schreibgeschützt und kann keine Termine empfangen."
+
+#: src/qml/pages/AppSettingsPage.qml:733 src/qml/pages/AppSettingsPage.qml:739
+msgid "Username"
+msgstr "Benutzername"
+
+#: src/qml/pages/AppSettingsPage.qml:750 src/qml/pages/AppSettingsPage.qml:759
+msgid "Password"
+msgstr "Passwort"
+
+#: src/qml/pages/AppSettingsPage.qml:844 src/qml/pages/AppSettingsPage.qml:845
+msgid "Find calendars"
+msgstr "Kalender suchen"
+
+#: src/qml/pages/AppSettingsPage.qml:856 src/qml/pages/AppSettingsPage.qml:860
+msgid "Include the task note in the event description"
+msgstr "Aufgabennotiz in die Terminbeschreibung aufnehmen"
+
+#: src/qml/pages/AppSettingsPage.qml:857
+msgid "Notes are sent to your calendar server."
+msgstr "Notizen werden an Ihren Kalenderserver gesendet."
+
+#: src/qml/pages/AppSettingsPage.qml:886
+msgid "Choose a calendar service and sign in to start sending events."
+msgstr ""
+"Wählen Sie einen Kalenderdienst und melden Sie sich an, um Termine zu senden."
+
+#: src/qml/pages/AppSettingsPage.qml:897
+msgid "Last event sent: %1"
+msgstr "Letzter gesendeter Termin: %1"
+
+#: src/qml/pages/AppSettingsPage.qml:901
+msgid "%1 event waiting to be sent"
+msgid_plural "%1 events waiting to be sent"
+msgstr[0] "%1 Termin wartet auf das Senden"
+msgstr[1] "%1 Termine warten auf das Senden"
+
+#: src/qml/pages/AppSettingsPage.qml:905
+msgid ""
+"When enabled, kTomato sends the name of your timer, its category and the "
+"time of each finished work session to the calendar server you choose."
+msgstr ""
+"Wenn aktiviert, sendet kTomato den Namen Ihres Timers, seine Kategorie und "
+"die Zeit jeder abgeschlossenen Arbeitssitzung an den von Ihnen gewählten "
+"Kalenderserver."
+
+#: src/qml/pages/AppSettingsPage.qml:910
+msgid "Data management"
+msgstr "Datenverwaltung"
+
+#: src/qml/pages/AppSettingsPage.qml:914
+msgid "Database: %1"
+msgstr "Datenbank: %1"
+
+#: src/qml/pages/AppSettingsPage.qml:915
+msgid "Stop the active timer before restoring a backup."
+msgstr ""
+"Stoppen Sie den aktiven Timer, bevor Sie eine Sicherung wiederherstellen."
+
+#: src/qml/pages/AppSettingsPage.qml:917
+msgid "Back up…"
+msgstr "Sichern…"
+
+#: src/qml/pages/AppSettingsPage.qml:922
+msgid "Restore…"
+msgstr "Wiederherstellen…"
+
+#: src/qml/pages/AppSettingsPage.qml:929
+msgid "Session history"
+msgstr "Sitzungsverlauf"
+
+#: src/qml/pages/AppSettingsPage.qml:932
+msgid "Clear history…"
+msgstr "Verlauf löschen…"
+
+#: src/qml/pages/AppSettingsPage.qml:943
+msgid "Global Shortcuts and Automation"
+msgstr "Globale Kurzbefehle und Automatisierung"
+
+#: src/qml/pages/AppSettingsPage.qml:947
+msgid "D-Bus API:"
+msgstr "D-Bus-Schnittstelle:"
+
+#: src/qml/pages/AppSettingsPage.qml:948
+msgid ""
+"kTomato exposes a native D-Bus interface at %1. You can bind global keys in "
+"KDE System Settings → Shortcuts to a command like the one below."
+msgstr ""
+"kTomato stellt unter %1 eine native D-Bus-Schnittstelle bereit. Sie können "
+"in den KDE-Systemeinstellungen → Kurzbefehle globale Tastenkürzel mit einem "
+"Befehl wie dem folgenden belegen."
+
+#: src/qml/pages/AppSettingsPage.qml:970 src/qml/pages/AppSettingsPage.qml:973
+msgid "Open Global Shortcuts"
+msgstr "Globale Kurzbefehle öffnen"
+
+#: src/qml/pages/AppSettingsPage.qml:971
+msgid "Available commands: %1."
+msgstr "Verfügbare Befehle: %1."
+
+#: src/qml/pages/AppSettingsPage.qml:981
+msgid "Troubleshooting & Diagnostics"
+msgstr "Fehlerbehebung & Diagnose"
+
+#: src/qml/pages/AppSettingsPage.qml:985
+msgid "Diagnostics:"
+msgstr "Diagnose:"
+
+#: src/qml/pages/AppSettingsPage.qml:986
+msgid ""
+"Generate a redacted report with system information and recent logs to share "
+"when reporting an issue."
+msgstr ""
+"Generieren Sie einen anonymisierten Bericht mit Systeminformationen und "
+"aktuellen Protokollen zur Weitergabe bei Problemmeldungen."
+
+#: src/qml/pages/AppSettingsPage.qml:994 src/qml/pages/AppSettingsPage.qml:1105
+msgid "Copy to Clipboard"
+msgstr "In die Zwischenablage kopieren"
+
+#: src/qml/pages/AppSettingsPage.qml:1002
+msgid "Export Diagnostics…"
+msgstr "Diagnose exportieren…"
+
+#: src/qml/pages/AppSettingsPage.qml:1007
+msgid "View Report…"
+msgstr "Bericht anzeigen…"
+
+#: src/qml/pages/AppSettingsPage.qml:1025
+msgid "Diagnostic report copied to clipboard."
+msgstr "Diagnosebericht in die Zwischenablage kopiert."
+
+#: src/qml/pages/AppSettingsPage.qml:1027
+msgid "Diagnostic report successfully exported."
+msgstr "Diagnosebericht erfolgreich exportiert."
+
+#: src/qml/pages/AppSettingsPage.qml:1031
+msgid "Failed to export diagnostic report."
+msgstr "Fehler beim Exportieren des Diagnoseberichts."
+
+#: src/qml/pages/AppSettingsPage.qml:1051
+msgid "Back up kTomato database"
+msgstr "kTomato-Datenbank sichern"
+
+#: src/qml/pages/AppSettingsPage.qml:1054
+#: src/qml/pages/AppSettingsPage.qml:1062
+msgid "SQLite database (*.db)"
+msgstr "SQLite-Datenbank (*.db)"
+
+#: src/qml/pages/AppSettingsPage.qml:1060
+msgid "Choose a kTomato backup"
+msgstr "Eine kTomato-Sicherung auswählen"
+
+#: src/qml/pages/AppSettingsPage.qml:1068
+msgid "Export Diagnostics"
+msgstr "Diagnose exportieren"
+
+#: src/qml/pages/AppSettingsPage.qml:1071
+msgid "Text files (*.txt)"
+msgstr "Textdateien (*.txt)"
+
+#: src/qml/pages/AppSettingsPage.qml:1084
+msgid "Diagnostics Report"
+msgstr "Diagnosebericht"
+
+#: src/qml/pages/AppSettingsPage.qml:1085
+msgid "All personal details and usernames have been redacted."
+msgstr "Alle persönlichen Daten und Benutzernamen wurden anonymisiert."

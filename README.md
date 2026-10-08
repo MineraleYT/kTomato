@@ -50,6 +50,10 @@
   - Optional prompt upon completing a work session to record what you accomplished.
   - Log tasks directly from the Plasma notification (inline reply or action) or via the in-app dialog with quick suggestions.
   - Task notes are stored with session records and exported in CSV reports.
+- 📅 **Calendar Events (optional)**:
+  - Log in with **Nextcloud** (authorized in your browser, no password to copy) or connect any **CalDAV** calendar from Settings → Calendar.
+  - Every finished work session becomes an event with the timer name, its category and the real start and end times. The task note is added only if you turn that on.
+  - Off by default. Failed sends are retried while kTomato runs. A calendar *subscription* link ending in `.ics` is read-only and cannot receive events: use the CalDAV address.
 - 🏃 **KRunner Search Integration**:
   - Control your timer directly from Plasma's launcher (`Alt+Space` or `Meta`).
   - Search `pomodoro` or `ktomato` to view current remaining time, pause, resume, skip, or stop.
@@ -61,7 +65,7 @@
   - Breeze-style interface with a selectable color scheme (Breeze Dark by default, Breeze Light, or the system scheme) and keyboard shortcuts: `Space` starts or pauses the timer, `Ctrl+1`…`Ctrl+5` switch pages, `Ctrl+,` opens Settings, and `Ctrl+S` / `Esc` save or cancel in the timer editor.
   - An animated Welcome tour for the first start.
 - 🤖 **D-Bus Automation**: Full CLI and script control interface to bind global shortcuts or automate workflows.
-- 🔒 **Offline & Private**: Everything is stored in a local SQLite database (`~/.local/share/ktomato/ktomato.db`). Includes one-click database backup and restore. kTomato never sends data anywhere; the only network access is the optional update check you start yourself from the About page (it asks the GitHub releases API for the latest version number).
+- 🔒 **Offline & Private**: Everything is stored in a local SQLite database (`~/.local/share/ktomato/ktomato.db`). Includes one-click database backup and restore. kTomato sends nothing on its own. Network access happens only in two optional cases: the update check you start yourself from the About page (it asks the GitHub releases API for the latest version number), and the calendar sync, if you turn it on in Settings (it sends the timer name, category and times of each finished work session to the calendar server you choose).
 - 🩺 **Diagnostics**: Settings → Troubleshooting can copy or export a report with the version, environment and recent log lines (home directory and user name are redacted) to attach to bug reports.
 
 ---
@@ -72,10 +76,10 @@
 
 GitHub releases provide a standalone, pre-built x86_64 Flatpak bundle:
 
-1. Download `ktomato-v1.0.0-x86_64.flatpak` from [Releases](https://github.com/MineraleYT/kTomato/releases/latest).
+1. Download `ktomato-v1.0.1-x86_64.flatpak` from [Releases](https://github.com/MineraleYT/kTomato/releases/latest).
 2. Install with:
    ```sh
-   flatpak install --user ./ktomato-v1.0.0-x86_64.flatpak
+   flatpak install --user ./ktomato-v1.0.1-x86_64.flatpak
    ```
 3. Launch:
    ```sh

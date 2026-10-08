@@ -40,6 +40,7 @@
 #include "PowerInhibitor.h"
 #include "ScreenLockWatcher.h"
 #include "Diagnostics.h"
+#include "CalendarSync.h"
 
 int main(int argc, char *argv[])
 {
@@ -227,6 +228,11 @@ int main(int argc, char *argv[])
     auto *diagnostics = engine.singletonInstance<Diagnostics *>("io.github.mineraleyt.ktomato", "Diagnostics");
     if (diagnostics) {
         diagnostics->attach(settings, dataManager);
+    }
+    auto *calendarSync = engine.singletonInstance<CalendarSync *>("io.github.mineraleyt.ktomato", "CalendarSync");
+    if (calendarSync) {
+        QObject::connect(recorder, &SessionRecorder::workSessionRecorded, calendarSync, &CalendarSync::enqueueWorkSession);
+        QObject::connect(dataManager, &DataManager::sessionNoteChanged, calendarSync, &CalendarSync::onNoteChanged);
     }
     auto *focusSound = new FocusSoundController(&services);
     focusSound->attach(timer, settings);

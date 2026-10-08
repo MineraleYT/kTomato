@@ -5,10 +5,10 @@
 #include <QObject>
 
 #include "TimerEngine.h"
+#include "SessionRepository.h"
 #include "TimerPreset.h"
 
 class PresetModel;
-class SessionRepository;
 
 /**
  * Stores every finished phase of the TimerEngine.
@@ -40,6 +40,8 @@ public:
 
 Q_SIGNALS:
     void sessionRecorded();
+    /// A Work phase ran to its end and was stored; record.id is its new row id.
+    void workSessionRecorded(const SessionRecord &record);
 
 private Q_SLOTS:
     void onPhaseStarted(TimerEngine::Phase phase);

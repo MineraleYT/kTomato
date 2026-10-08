@@ -46,6 +46,8 @@ target_sources(ktomato PRIVATE
     core/UpdateChecker.cpp
     core/Diagnostics.h
     core/Diagnostics.cpp
+    core/CalendarSync.h
+    core/CalendarSync.cpp
     platform/NotificationInhibitor.h
     platform/NotificationInhibitor.cpp
     platform/PowerInhibitor.h

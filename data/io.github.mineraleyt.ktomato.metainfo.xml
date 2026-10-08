@@ -20,6 +20,7 @@
       <li>Session history, daily targets, streak tracking, charts, and CSV export</li>
       <li>SQLite backup, restore, and session-history management</li>
       <li>System tray integration and a D-Bus control interface</li>
+      <li>Optional calendar events for finished work sessions (Nextcloud login or any CalDAV calendar)</li>
       <li>KRunner integration, optional automatic pause when the screen is locked, and task notes for completed sessions</li>
       <li>Available in English, Italian, German, Spanish and French</li>
     </ul>
@@ -34,6 +35,18 @@
     <binary>ktomato</binary>
   </provides>
   <releases>
+    <release version="1.0.1" date="2026-10-08">
+      <description>
+        <p>Adds optional calendar events for finished work sessions.</p>
+        <ul>
+          <li>Calendar sync: add an event to your Nextcloud or CalDAV calendar each time a work session is completed (off by default)</li>
+          <li>Log in with Nextcloud through your browser, with no password to copy</li>
+          <li>Separate settings for Nextcloud and custom CalDAV, a calendar picker with a refresh button, a connection test and an optional task note in the event description</li>
+          <li>Events that cannot be sent are retried while kTomato is running</li>
+          <li>Passwords and addresses with credentials are removed from the diagnostics report</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-10-06">
       <description>
         <p>First release of kTomato.</p>

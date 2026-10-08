@@ -45,6 +45,8 @@ Q_SIGNALS:
     void operationFailed(const QString &message);
     void operationSucceeded(const QString &message);
     void dataChanged();
+    /// A session note was stored (also emitted for an empty note).
+    void sessionNoteChanged(qint64 sessionId, const QString &note);
 
 private:
     bool validateBackup(const QString &path, QString *error) const;

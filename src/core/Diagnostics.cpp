@@ -113,6 +113,18 @@ QString Diagnostics::redact(const QString &text)
 {
     QString result = text;
 
+    // 0. Secrets first: Authorization headers, user:password@host in URLs, password/token
+    // assignments (the calendar sync keeps an app password; none of it may leave in a report).
+    static const QRegularExpression authHeaderRegex(QStringLiteral(R"((authorization\s*[:=]\s*)[^\r\n]*)"),
+                                                    QRegularExpression::CaseInsensitiveOption);
+    result.replace(authHeaderRegex, QStringLiteral("\\1<redacted>"));
+    static const QRegularExpression urlCredentialsRegex(QStringLiteral(R"(\b([A-Za-z][A-Za-z0-9+.-]*://)[^/\s@]+@)"));
+    result.replace(urlCredentialsRegex, QStringLiteral("\\1<redacted>@"));
+    static const QRegularExpression secretAssignmentRegex(
+        QStringLiteral(R"re(("?\b(?:app[_-]?password|password|passwd|secret|token)"?\s*[:=]\s*"?)[^\s",&;]+)re"),
+        QRegularExpression::CaseInsensitiveOption);
+    result.replace(secretAssignmentRegex, QStringLiteral("\\1<redacted>"));
+
     // 1. Redact the home directory path (and its resolved form, if it is a symlink)
     const QString home = QDir::homePath();
     for (const QString &path : {home, QDir(home).canonicalPath()}) {

@@ -24,6 +24,83 @@ Kirigami.ScrollablePage {
         return 0;
     }
 
+    // Calendar sync state, guarded because the singleton can be gone at shutdown.
+    readonly property bool calOn: CalendarSync ? CalendarSync.enabled : false
+    readonly property string calProvider: CalendarSync ? CalendarSync.provider : "nextcloud"
+    readonly property bool calCustom: calProvider === "caldav"
+    readonly property bool calHasPassword: CalendarSync ? CalendarSync.hasPassword : false
+    readonly property bool calConnected: calHasPassword && !calCustom
+    readonly property int calStatus: CalendarSync ? CalendarSync.status : 0
+    readonly property bool calWaiting: CalendarSync ? calStatus === CalendarSync.WaitingForBrowser : false
+    readonly property int calPending: CalendarSync ? CalendarSync.pendingCount : 0
+    // Signed in with something to send events to: password and user name are stored.
+    readonly property bool calConfigured: calHasPassword && CalendarSync !== null && CalendarSync.username.length > 0
+    // While the server is being asked, only the button that started the request is greyed out
+    // (the two buttons used to dim together, which looked like both had been pressed).
+    property string calAction: ""   // "refresh" or "test"
+    readonly property bool calWorking: CalendarSync ? calStatus === CalendarSync.Working : false
+    readonly property bool calRefreshing: calWorking && calAction === "refresh"
+    readonly property bool calTesting: calWorking && calAction === "test"
+    // A successful connection test is shown on the Test button itself (a green check for a few
+    // seconds); failures are explained in the message at the bottom of the card.
+    property bool calTestOk: false
+    onCalWorkingChanged: {
+        if (calWorking) {
+            calTestOk = false;
+        } else {
+            if (calAction === "test" && CalendarSync && calStatus === CalendarSync.Ready) {
+                calTestOk = true;
+                calTestOkTimer.restart();
+            }
+            calAction = "";
+        }
+    }
+    Timer {
+        id: calTestOkTimer
+        interval: 3000
+        onTriggered: page.calTestOk = false
+    }
+    readonly property string calLastSuccess: {
+        const d = CalendarSync ? CalendarSync.lastSuccess : null;
+        if (!d) {
+            return "";
+        }
+        const date = new Date(d);
+        return isNaN(date.getTime()) ? "" : date.toLocaleString(Qt.locale(), Locale.ShortFormat);
+    }
+    // Calendars to pick from; the saved one alone when no list has been fetched yet.
+    readonly property var calChoices: {
+        if (!CalendarSync) {
+            return [];
+        }
+        const list = CalendarSync.calendars;
+        if (list && list.length > 0) {
+            return list;
+        }
+        if (CalendarSync.calendarUrl.length > 0) {
+            return [{ name: CalendarSync.calendarName.length > 0 ? CalendarSync.calendarName : CalendarSync.calendarUrl,
+                      url: CalendarSync.calendarUrl, color: "" }];
+        }
+        return [];
+    }
+    function calChoiceIndex(): int {
+        const url = CalendarSync ? CalendarSync.calendarUrl : "";
+        for (let i = 0; i < calChoices.length; ++i) {
+            if (calChoices[i].url === url) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // The calendar list is not kept between runs, and calendars made on the server since the last
+    // visit should show up: reload it when the page opens, if the calendar is on and signed in.
+    Component.onCompleted: {
+        if (CalendarSync && CalendarSync.enabled && CalendarSync.hasPassword && !calWaiting) {
+            CalendarSync.refreshCalendars();
+        }
+    }
+
     // Result of the last diagnostics action: "", "copied", "exported" or "exportFailed".
     property string diagnosticsResult: ""
     property bool diagnosticsDismissed: false
@@ -509,6 +586,323 @@ Kirigami.ScrollablePage {
                     title: i18n("Prompt for a task note when a work session finishes")
                     description: i18n("Sends a notification allowing you to record what you worked on. Notes are saved to session history and exported with CSV reports.")
                     SettingSwitch { setting: "promptTaskNote" }
+                }
+            }
+
+            SettingsCard {
+                id: calendarCard
+                title: i18n("Calendar")
+                iconName: "view-calendar"
+
+                SettingRow {
+                    first: true
+                    title: i18n("Add an event to your calendar each time you finish a work session.")
+                    QQC2.Switch {
+                        id: calendarSwitch
+                        checked: page.calOn
+                        Accessible.name: i18n("Calendar")
+                        onToggled: {
+                            if (CalendarSync) {
+                                CalendarSync.enabled = checked;
+                            }
+                            checked = Qt.binding(() => page.calOn);
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    id: calendarBody
+                    Layout.fillWidth: true
+                    spacing: 0
+                    enabled: page.calOn
+                    opacity: page.calOn ? 1 : 0.6
+
+                    SettingRow {
+                        title: i18n("Calendar service")
+                        QQC2.ComboBox {
+                            id: calProviderBox
+                            textRole: "text"
+                            valueRole: "value"
+                            model: [
+                                { text: i18n("Nextcloud"), value: "nextcloud" },
+                                { text: i18n("Custom CalDAV"), value: "caldav" }
+                            ]
+                            currentIndex: page.valueIndex(model, page.calProvider)
+                            Accessible.name: i18n("Calendar service")
+                            onActivated: {
+                                if (CalendarSync) {
+                                    CalendarSync.provider = currentValue;
+                                    // Each service keeps its own settings: if the one just chosen is
+                                    // already signed in, load its calendars.
+                                    if (CalendarSync.hasPassword) {
+                                        CalendarSync.refreshCalendars();
+                                    }
+                                }
+                                currentIndex = Qt.binding(() => page.valueIndex(model, page.calProvider));
+                            }
+                        }
+                    }
+
+                    // Nextcloud: server address and browser login.
+                    SettingRow {
+                        visible: !page.calCustom
+                        title: i18n("Server address")
+                        enabled: !page.calConnected && !page.calWaiting
+                        QQC2.TextField {
+                            Layout.fillWidth: !page.wide
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 16
+                            placeholderText: "https://cloud.example.org"
+                            inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText
+                            text: CalendarSync ? CalendarSync.serverUrl : ""
+                            Accessible.name: i18n("Server address")
+                            onEditingFinished: {
+                                if (CalendarSync) {
+                                    CalendarSync.serverUrl = text;
+                                }
+                                text = Qt.binding(() => CalendarSync ? CalendarSync.serverUrl : "");
+                            }
+                        }
+                    }
+                    SettingRow {
+                        visible: !page.calCustom
+                        title: page.calConnected
+                            ? i18n("Connected as %1", CalendarSync ? CalendarSync.username : "")
+                            : (page.calWaiting && CalendarSync ? CalendarSync.statusText : "")
+                        QQC2.BusyIndicator {
+                            Layout.preferredWidth: Kirigami.Units.iconSizes.medium
+                            Layout.preferredHeight: Kirigami.Units.iconSizes.medium
+                            visible: page.calWaiting
+                            running: visible && page.visible
+                        }
+                        QQC2.Button {
+                            visible: !page.calConnected && !page.calWaiting
+                            text: i18n("Log in")
+                            icon.name: "network-connect"
+                            onClicked: CalendarSync.startNextcloudLogin()
+                        }
+                        QQC2.Button {
+                            visible: page.calWaiting
+                            text: i18n("Cancel")
+                            icon.name: "dialog-cancel"
+                            onClicked: CalendarSync.cancelLogin()
+                        }
+                        QQC2.Button {
+                            visible: page.calConnected && !page.calWaiting
+                            text: i18n("Test")
+                            icon.name: page.calTestOk ? "dialog-ok-apply" : "network-wireless-connected-100"
+                            icon.color: page.calTestOk ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.textColor
+                            enabled: !page.calTesting
+                            Accessible.name: i18n("Test connection")
+                            QQC2.ToolTip.text: i18n("Test connection")
+                            QQC2.ToolTip.visible: hovered
+                            QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+                            onClicked: {
+                                page.calAction = "test";
+                                CalendarSync.testConnection();
+                            }
+                        }
+                        QQC2.Button {
+                            visible: page.calConnected && !page.calWaiting
+                            text: i18n("Disconnect")
+                            icon.name: "network-disconnect"
+                            onClicked: CalendarSync.disconnect()
+                        }
+                    }
+
+                    // Custom CalDAV: address, username, password.
+                    SettingRow {
+                        visible: page.calCustom
+                        title: i18n("Calendar address (CalDAV)")
+                        description: i18n("Use the CalDAV address of the calendar. A subscription link ending in .ics is read-only and cannot receive events.")
+                        QQC2.TextField {
+                            Layout.fillWidth: !page.wide
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 16
+                            inputMethodHints: Qt.ImhUrlCharactersOnly | Qt.ImhNoPredictiveText
+                            text: CalendarSync ? CalendarSync.calendarUrl : ""
+                            Accessible.name: i18n("Calendar address (CalDAV)")
+                            onEditingFinished: {
+                                if (CalendarSync) {
+                                    CalendarSync.calendarUrl = text;
+                                }
+                                text = Qt.binding(() => CalendarSync ? CalendarSync.calendarUrl : "");
+                            }
+                        }
+                    }
+                    SettingRow {
+                        visible: page.calCustom
+                        title: i18n("Username")
+                        QQC2.TextField {
+                            Layout.fillWidth: !page.wide
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 16
+                            inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                            text: CalendarSync ? CalendarSync.username : ""
+                            Accessible.name: i18n("Username")
+                            onEditingFinished: {
+                                if (CalendarSync) {
+                                    CalendarSync.username = text;
+                                }
+                                text = Qt.binding(() => CalendarSync ? CalendarSync.username : "");
+                            }
+                        }
+                    }
+                    SettingRow {
+                        visible: page.calCustom
+                        title: i18n("Password")
+                        QQC2.TextField {
+                            id: calPasswordField
+                            property bool dirty: false
+                            Layout.fillWidth: !page.wide
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 16
+                            echoMode: TextInput.Password
+                            // The saved password is never read back; dots only show that one is stored.
+                            placeholderText: page.calHasPassword ? "••••••••" : ""
+                            Accessible.name: i18n("Password")
+                            onTextEdited: dirty = true
+                            onEditingFinished: {
+                                if (dirty && CalendarSync) {
+                                    CalendarSync.setPassword(text);
+                                }
+                                dirty = false;
+                                text = "";
+                            }
+                        }
+                    }
+                    // Same row as for Nextcloud: test the connection, or forget this service's login.
+                    SettingRow {
+                        visible: page.calCustom && page.calConfigured
+                        title: ""
+                        QQC2.Button {
+                            text: i18n("Test")
+                            icon.name: page.calTestOk ? "dialog-ok-apply" : "network-wireless-connected-100"
+                            icon.color: page.calTestOk ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.textColor
+                            enabled: !page.calTesting
+                            Accessible.name: i18n("Test connection")
+                            QQC2.ToolTip.text: i18n("Test connection")
+                            QQC2.ToolTip.visible: hovered
+                            QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+                            onClicked: {
+                                page.calAction = "test";
+                                CalendarSync.testConnection();
+                            }
+                        }
+                        QQC2.Button {
+                            text: i18n("Disconnect")
+                            icon.name: "network-disconnect"
+                            onClicked: CalendarSync.disconnect()
+                        }
+                    }
+                    // Calendar choice, with a refresh button to reload the list from the server.
+                    SettingRow {
+                        visible: page.calChoices.length > 0 || page.calConfigured
+                        title: i18n("Calendar")
+                        QQC2.ComboBox {
+                            id: calChoiceBox
+                            Layout.fillWidth: !page.wide
+                            Layout.preferredWidth: Kirigami.Units.gridUnit * 16
+                            textRole: "name"
+                            valueRole: "url"
+                            model: page.calChoices
+                            currentIndex: page.calChoiceIndex()
+                            Accessible.name: i18n("Calendar")
+                            onActivated: {
+                                const item = page.calChoices[currentIndex];
+                                if (CalendarSync && item) {
+                                    CalendarSync.selectCalendar(item.url, item.name);
+                                }
+                                currentIndex = Qt.binding(() => page.calChoiceIndex());
+                            }
+                            enabled: page.calChoices.length > 0
+                            delegate: QQC2.ItemDelegate {
+                                required property var modelData
+                                required property int index
+                                width: calChoiceBox.width
+                                highlighted: calChoiceBox.highlightedIndex === index
+                                contentItem: RowLayout {
+                                    spacing: Kirigami.Units.smallSpacing
+                                    Rectangle {
+                                        visible: !!modelData.color
+                                        implicitWidth: Kirigami.Units.gridUnit * 0.6
+                                        implicitHeight: implicitWidth
+                                        radius: width / 2
+                                        color: modelData.color || "transparent"
+                                        border.width: 1
+                                        border.color: page.cardBorder
+                                    }
+                                    QQC2.Label {
+                                        Layout.fillWidth: true
+                                        text: modelData.name
+                                        elide: Text.ElideRight
+                                        color: highlighted ? Kirigami.Theme.highlightedTextColor : Kirigami.Theme.textColor
+                                    }
+                                }
+                            }
+                        }
+                        QQC2.ToolButton {
+                            icon.name: "view-refresh"
+                            display: QQC2.AbstractButton.IconOnly
+                            enabled: !page.calRefreshing
+                            Accessible.name: i18n("Find calendars")
+                            QQC2.ToolTip.text: i18n("Find calendars")
+                            QQC2.ToolTip.visible: hovered
+                            QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
+                            onClicked: {
+                                page.calAction = "refresh";
+                                CalendarSync.refreshCalendars();
+                            }
+                        }
+                    }
+
+                    SettingRow {
+                        title: i18n("Include the task note in the event description")
+                        description: i18n("Notes are sent to your calendar server.")
+                        QQC2.Switch {
+                            checked: CalendarSync ? CalendarSync.includeNote : false
+                            Accessible.name: i18n("Include the task note in the event description")
+                            onToggled: {
+                                if (CalendarSync) {
+                                    CalendarSync.includeNote = checked;
+                                }
+                                checked = Qt.binding(() => CalendarSync ? CalendarSync.includeNote : false);
+                            }
+                        }
+                    }
+                }
+
+                // Status area, kept readable even while the sync is switched off. Nothing is shown while
+                // the server is being asked (the buttons are disabled meanwhile): only a result is.
+                Kirigami.InlineMessage {
+                    Layout.fillWidth: true
+                    Layout.topMargin: Kirigami.Units.smallSpacing
+                    visible: CalendarSync !== null && (page.calStatus === CalendarSync.Failed
+                        || (page.calStatus === CalendarSync.NotConfigured
+                            && !page.calCustom && !page.calConnected && !page.calWaiting))
+                    type: page.calStatus === CalendarSync.Failed ? Kirigami.MessageType.Error
+                        : Kirigami.MessageType.Information
+                    text: {
+                        if (!CalendarSync) {
+                            return "";
+                        }
+                        if (page.calStatus === CalendarSync.NotConfigured) {
+                            return i18n("Choose a calendar service and sign in to start sending events.");
+                        }
+                        if (page.calStatus === CalendarSync.Failed && CalendarSync.lastError.length > 0) {
+                            return CalendarSync.lastError;
+                        }
+                        return CalendarSync.statusText;
+                    }
+                }
+                SmallText {
+                    Layout.topMargin: Kirigami.Units.smallSpacing
+                    visible: page.calLastSuccess.length > 0
+                    text: i18n("Last event sent: %1", page.calLastSuccess)
+                }
+                SmallText {
+                    visible: page.calPending > 0
+                    text: i18np("%1 event waiting to be sent", "%1 events waiting to be sent", page.calPending)
+                }
+                SmallText {
+                    Layout.topMargin: Kirigami.Units.smallSpacing
+                    text: i18n("When enabled, kTomato sends the name of your timer, its category and the time of each finished work session to the calendar server you choose.")
                 }
             }
 

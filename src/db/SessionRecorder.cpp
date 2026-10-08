@@ -67,5 +67,9 @@ void SessionRecorder::onSessionEnded(TimerEngine::Phase phase,
     }
     if (inserted) {
         Q_EMIT sessionRecorded();
+        if (isWork && completed) {
+            record.id = id;
+            Q_EMIT workSessionRecorded(record);
+        }
     }
 }

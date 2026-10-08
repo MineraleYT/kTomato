@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QList>
+#include <QMetaType>
 #include <QString>
 
 enum class SessionKind {
@@ -24,6 +25,7 @@ struct SessionRecord {
     QString category;    ///< Snapshot.
     QString note;        ///< User task note or activity summary.
 };
+Q_DECLARE_METATYPE(SessionRecord)
 
 class SessionRepository
 {

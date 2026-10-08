@@ -312,6 +312,7 @@ bool DataManager::updateSessionNote(qint64 sessionId, const QString &note)
             m_stats->refresh();
         }
         Q_EMIT dataChanged();
+        Q_EMIT sessionNoteChanged(sessionId, note);
     }
     return ok;
 }

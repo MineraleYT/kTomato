@@ -118,6 +118,26 @@ private Q_SLOTS:
         }
     }
 
+    void testRedactsCalendarSecrets()
+    {
+        const QStringList inputs = {
+            QStringLiteral("Authorization: Basic YWxpY2U6c2VjcmV0cGFzcw=="),
+            QStringLiteral("PUT https://alice:hunter2pass@cloud.example.org/remote.php/dav failed"),
+            QStringLiteral("AppPassword=hunter2pass saved"),
+            QStringLiteral("{\"appPassword\":\"hunter2pass\",\"loginName\":\"x\"}"),
+            QStringLiteral("body token=hunter2pass&x=1"),
+        };
+        for (const QString &input : inputs) {
+            const QString redacted = Diagnostics::redact(input);
+            QVERIFY2(!redacted.contains(QStringLiteral("hunter2pass")), qPrintable(redacted));
+            QVERIFY2(!redacted.contains(QStringLiteral("YWxpY2U6")), qPrintable(redacted));
+            QVERIFY2(!redacted.contains(QStringLiteral("alice:")), qPrintable(redacted));
+        }
+        // Ordinary text is left alone.
+        QCOMPARE(Diagnostics::redact(QStringLiteral("Connected to https://cloud.example.org/x")),
+                 QStringLiteral("Connected to https://cloud.example.org/x"));
+    }
+
     void testExportRejectsNonLocalUrls()
     {
         Diagnostics diag;
