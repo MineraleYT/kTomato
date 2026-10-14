@@ -18,10 +18,40 @@
 #include <memory>
 
 #include "CalendarSync.h"
+#include "SecretStore.h"
 
 namespace
 {
 const QString kPassword = QStringLiteral("s3cretPW-xyz");
+
+/// An in-memory keyring; copies share their contents, like a real keyring across restarts.
+class FakeSecretStore : public SecretStore
+{
+public:
+    std::shared_ptr<QHash<QString, QString>> secrets = std::make_shared<QHash<QString, QString>>();
+    std::shared_ptr<bool> available = std::make_shared<bool>(true);
+
+    bool isAvailable() override { return *available; }
+    std::optional<QString> read(const QString &key) override
+    {
+        if (!*available) {
+            return std::nullopt;
+        }
+        return secrets->value(key);
+    }
+    bool write(const QString &key, const QString &secret) override
+    {
+        if (!*available) {
+            return false;
+        }
+        if (secret.isEmpty()) {
+            secrets->remove(key);
+        } else {
+            secrets->insert(key, secret);
+        }
+        return true;
+    }
+};
 
 QByteArray basic(const QString &user, const QString &pw)
 {
@@ -132,6 +162,7 @@ public:
     int pollsBefore200 = 2;
     int polls = 0;
     QString loginServer;               ///< `server` in the final login answer.
+    QString loginPage;                 ///< `login` (the page to open) in the first answer; empty: on this server.
     QString loginName = QStringLiteral("alice");
     QString appPassword = kPassword;
     QByteArray token = "tok123";
@@ -197,7 +228,7 @@ private:
         const QByteArray path = req.path;
         if (path == "/index.php/login/v2") {
             const QByteArray json = "{\"poll\":{\"token\":\"" + token + "\",\"endpoint\":\"" + base().toUtf8()
-                + "/login/v2/poll\"},\"login\":\"" + base().toUtf8() + "/login/v2/flow/abc\"}";
+                + "/login/v2/poll\"},\"login\":\"" + (loginPage.isEmpty() ? base() + QStringLiteral("/login/v2/flow/abc") : loginPage).toUtf8() + "\"}";
             reply(s, 200, json);
             return;
         }
@@ -249,7 +280,9 @@ private:
             return;
         }
         if (req.method == "DELETE") {
-            stored.remove(path);
+            if (deleteStatus >= 200 && deleteStatus < 300) {
+                stored.remove(path);
+            }
             reply(s, deleteStatus);
             return;
         }
@@ -282,6 +315,23 @@ private:
         sync->setLoginPollIntervalForTesting(20);
         sync->setOpenUrlHandler([this](const QUrl &url) { m_opened.append(url); });
         return sync;
+    }
+
+    std::unique_ptr<CalendarSync> makeSyncWithKeyring(const FakeSecretStore &keyring)
+    {
+        auto config = KSharedConfig::openConfig(configPath(), KConfig::SimpleConfig);
+        auto store = std::make_unique<FakeSecretStore>(keyring);
+        auto sync = std::make_unique<CalendarSync>(config, std::move(store));
+        sync->setRetryDelaysForTesting({40, 80});
+        sync->setLoginPollIntervalForTesting(20);
+        sync->setOpenUrlHandler([this](const QUrl &url) { m_opened.append(url); });
+        return sync;
+    }
+
+    QByteArray configFileContents() const
+    {
+        QFile f(configPath());
+        return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray();
     }
 
     /// A configured, enabled custom CalDAV account pointing at the fake server.
@@ -497,7 +547,10 @@ private Q_SLOTS:
         auto sync = makeSync();
         QVERIFY(sync->calendarUrl().isEmpty());
         sync->enqueueWorkSession(record());
-        QCOMPARE(sync->pendingCount(), 0);
+        // Kept for a proper (https) calendar, but nothing goes anywhere.
+        QTest::qWait(150);
+        QVERIFY(m_server->requests.isEmpty());
+        QCOMPARE(sync->status(), CalendarSync::NotConfigured);
     }
 
     // ----- Discovery -----
@@ -629,12 +682,47 @@ private Q_SLOTS:
         QCOMPARE(m_server->count("PUT"), puts);
     }
 
-    void unconfiguredQueuesNothing()
+    void eventsFromBeforeTheAccountWasSetUpAreSentToIt()
     {
+        // Turned on before signing in: the work done meanwhile is not lost...
         m_sync->setEnabled(true);
+        m_sync->enqueueWorkSession(record(1));
+        QCOMPARE(m_sync->pendingCount(), 1);
+        QCOMPARE(m_sync->status(), CalendarSync::NotConfigured);
+        QVERIFY(m_server->requests.isEmpty()); // ...and nothing is sent anywhere yet
+
+        // It survives a restart, and goes to the account once that is complete.
+        m_sync = makeSync();
+        QCOMPARE(m_sync->pendingCount(), 1);
+        configureCustom();
+        QTRY_COMPARE(m_sync->pendingCount(), 0);
+        QCOMPARE(m_server->stored.size(), 1);
+        QVERIFY(m_server->of("PUT").first().path.contains("ktomato-1-"));
+    }
+
+    void unboundEventsOfAnotherUserAreNotAdopted()
+    {
+        // Alice's user name was entered, but her password was never given.
+        m_sync->setProvider(QStringLiteral("caldav"));
+        m_sync->setUsername(QStringLiteral("alice"));
+        m_sync->setEnabled(true);
+        m_sync->enqueueWorkSession(record(1));
+        QCOMPARE(m_sync->pendingCount(), 1);
+
+        // Bob completes an account instead: Alice's event must not go to him.
+        m_server->expectedAuth = basic(QStringLiteral("bob"), QStringLiteral("bobs-password"));
+        m_sync->setUsername(QStringLiteral("bob"));
+        m_sync->setPassword(QStringLiteral("bobs-password"));
+        m_sync->setCalendarUrl(m_server->base() + QStringLiteral("/cal/personal/"));
+        QCOMPARE(m_sync->pendingCount(), 0);
+        QTest::qWait(150);
+        QVERIFY(m_server->stored.isEmpty());
+    }
+
+    void turnedOffNothingIsQueued()
+    {
         m_sync->enqueueWorkSession(record());
         QCOMPARE(m_sync->pendingCount(), 0);
-        QCOMPARE(m_sync->status(), CalendarSync::NotConfigured);
         QVERIFY(m_server->requests.isEmpty());
     }
 
@@ -922,7 +1010,88 @@ private Q_SLOTS:
         QCOMPARE(m_server->count("PROPFIND"), 0);
     }
 
-    void loginFlowInsecureServerRejected()
+    void loginPageOnAnotherHostIsNeverOpened()
+    {
+        m_server->loginPage = QStringLiteral("https://phishing.example.net/login/v2/flow/abc");
+        m_sync->setServerUrl(m_server->base());
+        m_sync->startNextcloudLogin();
+        QTRY_COMPARE(m_sync->status(), CalendarSync::Failed);
+        QVERIFY(m_opened.isEmpty());
+        QCOMPARE(m_server->polls, 0);
+    }
+
+    void nextcloudCalendarMustBeOnTheSignedInServer()
+    {
+        fillNextcloud(); // server https://cloud.example.org, calendar on it
+        const QString before = m_sync->calendarUrl();
+        m_sync->selectCalendar(QStringLiteral("https://elsewhere.example.com/cal/x"), QStringLiteral("X"));
+        QCOMPARE(m_sync->calendarUrl(), before);
+        QVERIFY(!m_sync->lastError().isEmpty());
+        m_sync->setCalendarUrl(QStringLiteral("https://elsewhere.example.com/cal/x"));
+        QCOMPARE(m_sync->calendarUrl(), before);
+        // The same server with its port written out is still the same server.
+        m_sync->selectCalendar(QStringLiteral("https://cloud.example.org:443/cal/work"), QStringLiteral("Work"));
+        QVERIFY(m_sync->calendarUrl().contains(QStringLiteral("/cal/work")));
+
+        // Custom CalDAV has no separate server: any (secure) calendar address is the account.
+        fillCaldav();
+        m_sync->selectCalendar(QStringLiteral("https://elsewhere.example.com/cal/x"), QStringLiteral("X"));
+        QCOMPARE(m_sync->calendarUrl(), QStringLiteral("https://elsewhere.example.com/cal/x"));
+    }
+
+    void passwordIsNotSentWhenTheServerChangedUnderTheCalendar()
+    {
+        // Nextcloud on the fake server, then the server address is edited to another host:
+        // the stored calendar still points at the old one and must not get the password.
+        m_server->expectedAuth = basic(QStringLiteral("alice"), kPassword);
+        m_sync->setProvider(QStringLiteral("nextcloud"));
+        m_sync->setServerUrl(m_server->base());
+        m_sync->setUsername(QStringLiteral("alice"));
+        m_sync->setPassword(kPassword);
+        m_sync->selectCalendar(m_server->base() + QStringLiteral("/remote.php/dav/calendars/alice/personal"), QStringLiteral("Personal"));
+        m_sync->setEnabled(true);
+        m_sync->setServerUrl(QStringLiteral("https://other.example.org"));
+        m_sync->enqueueWorkSession(record());
+        m_sync->testConnection();
+        QTest::qWait(250);
+        QCOMPARE(m_server->count("PUT"), 0);
+    }
+
+    void changeMadeWhileTheEventIsOnItsWayIsSentToo()
+    {
+        configureCustom();
+        SessionRecord first = record(5);
+        m_sync->enqueueWorkSession(first);
+        QCOMPARE(m_server->count("PUT"), 0); // the request is on its way, not answered yet
+        SessionRecord renamed = first;
+        renamed.presetName = QStringLiteral("Renamed while sending");
+        m_sync->enqueueWorkSession(renamed);
+        QTRY_COMPARE(m_sync->pendingCount(), 0);
+        QCOMPARE(m_server->count("PUT"), 2);
+        QVERIFY(m_server->of("PUT").last().body.contains("SUMMARY:Renamed while sending"));
+    }
+
+    void openingTheSettingsAgainDoesNotRefetchARecentList()
+    {
+        m_server->expectedAuth = basic(QStringLiteral("alice"), kPassword);
+        m_sync->setProvider(QStringLiteral("nextcloud"));
+        m_sync->setServerUrl(m_server->base());
+        m_sync->setUsername(QStringLiteral("alice"));
+        m_sync->setPassword(kPassword);
+        m_sync->refreshCalendarsIfStale();
+        QTRY_VERIFY(!m_sync->calendars().isEmpty());
+        const int fetches = m_server->count("PROPFIND");
+        QVERIFY(fetches >= 1);
+
+        m_sync->refreshCalendarsIfStale(); // the page opened again
+        QTest::qWait(150);
+        QCOMPARE(m_server->count("PROPFIND"), fetches);
+
+        m_sync->refreshCalendars(); // the refresh button always asks
+        QTRY_VERIFY(m_server->count("PROPFIND") > fetches);
+    }
+
+        void loginFlowInsecureServerRejected()
     {
         m_server->loginServer = QStringLiteral("http://example.org");
         m_sync->setServerUrl(m_server->base());
@@ -1268,6 +1437,212 @@ private Q_SLOTS:
         m_server->defaultPut = 201;
         m_sync->setProvider(QStringLiteral("caldav"));
         QTRY_COMPARE(m_sync->pendingCount(), 0);
+    }
+
+    // ----- Accounts, persistence and the keyring -----
+
+    void queuedEventsNeverGoToAnotherAccount()
+    {
+        // Events of alice's account are waiting when the same provider is set up for bob.
+        configureCustom();
+        m_server->defaultPut = 500;
+        m_sync->setRetryDelaysForTesting({600000});
+        m_sync->enqueueWorkSession(record(1));
+        m_sync->enqueueWorkSession(record(2));
+        QTRY_VERIFY(m_server->count("PUT") >= 1);
+        QCOMPARE(m_sync->pendingCount(), 2);
+
+        m_server->defaultPut = 201;
+        m_server->expectedAuth = basic(QStringLiteral("bob"), QStringLiteral("bobs-password"));
+        m_sync->setUsername(QStringLiteral("bob"));
+        m_sync->setPassword(QStringLiteral("bobs-password"));
+        QCOMPARE(m_sync->pendingCount(), 0);
+        const int puts = m_server->count("PUT");
+        QTest::qWait(250);
+        QCOMPARE(m_server->count("PUT"), puts);
+        QVERIFY(m_server->stored.isEmpty());
+
+        // Bob's own events go to bob.
+        m_sync->enqueueWorkSession(record(3));
+        QTRY_COMPARE(m_sync->pendingCount(), 0);
+        QCOMPARE(m_server->stored.size(), 1);
+        QVERIFY(m_server->of("PUT").last().path.contains("ktomato-3-"));
+    }
+
+    void otherProvidersQueueWaitsForItsOwnAccount()
+    {
+        configureCustom();
+        m_server->defaultPut = 500;
+        m_sync->setRetryDelaysForTesting({600000});
+        m_sync->enqueueWorkSession(record(1));
+        QTRY_VERIFY(m_server->count("PUT") >= 1);
+
+        // A Nextcloud account on the same server must not receive the CalDAV account's event.
+        m_server->defaultPut = 201;
+        m_sync->setProvider(QStringLiteral("nextcloud"));
+        m_sync->setServerUrl(m_server->base());
+        m_sync->setUsername(QStringLiteral("alice"));
+        m_sync->setPassword(kPassword);
+        m_sync->selectCalendar(m_server->base() + QStringLiteral("/remote.php/dav/calendars/alice/personal"), QStringLiteral("Personal"));
+        const int puts = m_server->count("PUT");
+        QTest::qWait(250);
+        QCOMPARE(m_server->count("PUT"), puts);
+        QCOMPARE(m_sync->pendingCount(), 1);
+
+        m_sync->setProvider(QStringLiteral("caldav"));
+        QTRY_COMPARE(m_sync->pendingCount(), 0);
+        QVERIFY(m_server->of("PUT").last().path.startsWith("/cal/personal/"));
+    }
+
+    void loginAsAnotherUserDropsTheOldAccountsEvents()
+    {
+        // Nextcloud: alice has events waiting, then the user signs in again as bob.
+        m_server->expectedAuth = basic(QStringLiteral("alice"), kPassword);
+        m_sync->setServerUrl(m_server->base());
+        m_sync->startNextcloudLogin();
+        QTRY_COMPARE(m_sync->status(), CalendarSync::Ready);
+        m_sync->setEnabled(true);
+        m_sync->setRetryDelaysForTesting({600000});
+        m_server->defaultPut = 500;
+        m_sync->enqueueWorkSession(record(1));
+        QTRY_VERIFY(m_server->count("PUT") >= 1);
+        QCOMPARE(m_sync->pendingCount(), 1);
+
+        m_server->defaultPut = 201;
+        m_server->loginName = QStringLiteral("bob");
+        m_server->expectedAuth = basic(QStringLiteral("bob"), kPassword);
+        m_server->polls = 0;
+        m_sync->startNextcloudLogin();
+        QTRY_COMPARE(m_sync->username(), QStringLiteral("bob"));
+        m_sync->selectCalendar(m_server->base() + QStringLiteral("/remote.php/dav/calendars/bob/personal"), QStringLiteral("Personal"));
+        QCOMPARE(m_sync->pendingCount(), 0);
+        QTest::qWait(250);
+        QVERIFY(m_server->stored.isEmpty());
+    }
+
+    void queueSurvivesRestart()
+    {
+        configureCustom();
+        m_sync->setIncludeNote(true);
+        m_server->defaultPut = 500;
+        m_sync->setRetryDelaysForTesting({600000});
+        SessionRecord first = record(1);
+        first.note = QStringLiteral("note, with; specials\nand a newline");
+        m_sync->enqueueWorkSession(first);
+        m_sync->enqueueWorkSession(record(2));
+        QTRY_VERIFY(m_server->count("PUT") >= 1);
+        QCOMPARE(m_sync->pendingCount(), 2);
+        m_sync.reset();
+
+        m_server->defaultPut = 201;
+        m_sync = makeSync();
+        QCOMPARE(m_sync->pendingCount(), 2);
+        QTRY_COMPARE(m_sync->pendingCount(), 0);
+        QCOMPARE(m_server->stored.size(), 2);
+        const auto puts = m_server->of("PUT");
+        QVERIFY(std::any_of(puts.cbegin(), puts.cend(), [](const auto &put) {
+            return put.path.contains("ktomato-1-1700000000000") && put.body.contains("DESCRIPTION:note\\, with\\; specials");
+        }));
+        // Nothing is left behind for the next start.
+        m_sync.reset();
+        m_sync = makeSync();
+        QCOMPARE(m_sync->pendingCount(), 0);
+    }
+
+    void noteResendRespectsTheQueueBound()
+    {
+        configureCustom();
+        m_sync->setIncludeNote(true);
+        m_sync->enqueueWorkSession(record(1));
+        QTRY_COMPARE(m_sync->pendingCount(), 0);
+
+        m_server->defaultPut = 500;
+        m_sync->setRetryDelaysForTesting({600000});
+        for (int i = 2; i <= 101; ++i) {
+            m_sync->enqueueWorkSession(record(i));
+        }
+        QCOMPARE(m_sync->pendingCount(), 100);
+        m_sync->onNoteChanged(1, QStringLiteral("late note"));
+        QCOMPARE(m_sync->pendingCount(), 100);
+    }
+
+    void leftoverTestEventIsRemovedLater()
+    {
+        configureCustom();
+        m_server->deleteStatus = 500;
+        m_sync->testConnection();
+        QTRY_COMPARE(m_sync->status(), CalendarSync::Ready);
+        QVERIFY(m_sync->lastError().contains(QStringLiteral("try again later")));
+        QCOMPARE(m_server->stored.size(), 1);
+
+        // It is remembered across a restart and removed after the next event goes through.
+        m_sync.reset();
+        m_sync = makeSync();
+        m_server->deleteStatus = 204;
+        m_sync->enqueueWorkSession(record(4));
+        QTRY_COMPARE(m_server->count("DELETE"), 2);
+        QTRY_COMPARE(m_server->stored.size(), 1);
+        QVERIFY(m_server->stored.keys().first().contains("ktomato-4-"));
+        QTRY_VERIFY(!configFileContents().contains("LeftoverTests"));
+        m_sync.reset();
+        m_sync = makeSync();
+        m_sync->enqueueWorkSession(record(5));
+        QTRY_COMPARE(m_sync->pendingCount(), 0);
+        QCOMPARE(m_server->count("DELETE"), 2);
+    }
+
+    void passwordIsKeptInTheKeyring()
+    {
+        FakeSecretStore keyring;
+        m_sync = makeSyncWithKeyring(keyring);
+        configureCustom();
+        QVERIFY(m_sync->isPasswordInKeyring());
+        QCOMPARE(keyring.secrets->value(QStringLiteral("calendar-caldav")), kPassword);
+        QVERIFY(!configFileContents().contains(kPassword.toUtf8()));
+
+        // It works from the keyring, and after a restart.
+        m_sync->enqueueWorkSession(record());
+        QTRY_COMPARE(m_sync->pendingCount(), 0);
+        m_sync = makeSyncWithKeyring(keyring);
+        QVERIFY(m_sync->hasPassword());
+        m_sync->enqueueWorkSession(record(8));
+        QTRY_COMPARE(m_sync->pendingCount(), 0);
+        QCOMPARE(m_server->stored.size(), 2);
+
+        m_sync->disconnect();
+        QVERIFY(keyring.secrets->isEmpty());
+    }
+
+    void passwordInTheFileMovesToTheKeyring()
+    {
+        configureCustom(); // no keyring: written to ktomatorc, as older versions did
+        QVERIFY(configFileContents().contains(kPassword.toUtf8()));
+        m_sync.reset();
+
+        FakeSecretStore keyring;
+        m_sync = makeSyncWithKeyring(keyring);
+        QVERIFY(m_sync->hasPassword());
+        QVERIFY(m_sync->isPasswordInKeyring());
+        QCOMPARE(keyring.secrets->value(QStringLiteral("calendar-caldav")), kPassword);
+        QVERIFY(!configFileContents().contains(kPassword.toUtf8()));
+    }
+
+    void withoutAKeyringThePasswordStaysInThePrivateFile()
+    {
+        FakeSecretStore keyring;
+        *keyring.available = false;
+        m_sync = makeSyncWithKeyring(keyring);
+        configureCustom();
+        QVERIFY(!m_sync->isPasswordInKeyring());
+        QVERIFY(configFileContents().contains(kPassword.toUtf8()));
+        const QFileInfo info(configPath());
+        QVERIFY(!(info.permissions() & (QFileDevice::ReadGroup | QFileDevice::ReadOther)));
+
+        // The keyring comes back: the next start moves it there.
+        *keyring.available = true;
+        m_sync = makeSyncWithKeyring(keyring);
+        QVERIFY(m_sync->isPasswordInKeyring());
+        QVERIFY(!configFileContents().contains(kPassword.toUtf8()));
     }
 
     void defaults()

@@ -13,6 +13,7 @@ public:
     qint64 monotonicMs() const override { return m_ms; }
     QDateTime wallTime() const override { return m_base.addMSecs(m_ms); }
     void advanceSeconds(qint64 seconds) { m_ms += seconds * 1000; }
+    void advanceMs(qint64 ms) { m_ms += ms; }
     const QDateTime &base() const { return m_base; }
 
 private:

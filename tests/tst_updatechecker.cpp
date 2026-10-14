@@ -55,6 +55,25 @@ private Q_SLOTS:
         qunsetenv("KTOMATO_OVERRIDE_VERSION");
     }
 
+    void longNumbersCompareByValue()
+    {
+        // Numbers past 18 digits (or past int) are compared exactly, not by a cut-off prefix.
+        QCOMPARE(UpdateChecker::compareVersions(QStringLiteral("1.0.0-rc1234567890123456789"),
+                                                QStringLiteral("1.0.0-rc1234567890123456780")), 1);
+        QCOMPARE(UpdateChecker::compareVersions(QStringLiteral("1.99999999999"), QStringLiteral("1.99999999998")), 1);
+        QCOMPARE(UpdateChecker::compareVersions(QStringLiteral("1.10"), QStringLiteral("1.9")), 1);
+        QCOMPARE(UpdateChecker::compareVersions(QStringLiteral("1.010"), QStringLiteral("1.10")), 0);
+    }
+
+    void onlyVersionLikeTagsAreAccepted()
+    {
+        QVERIFY(UpdateChecker::isPlausibleVersionTag(QStringLiteral("v1.0.2")));
+        QVERIFY(UpdateChecker::isPlausibleVersionTag(QStringLiteral("1.1.0-rc.1+build5")));
+        QVERIFY(!UpdateChecker::isPlausibleVersionTag(QStringLiteral("latest")));
+        QVERIFY(!UpdateChecker::isPlausibleVersionTag(QStringLiteral("v1.0 <b>click here</b>")));
+        QVERIFY(!UpdateChecker::isPlausibleVersionTag(QStringLiteral("v1.") + QString(200, QLatin1Char('1'))));
+    }
+
     void releaseIsNewerThanItsPreReleases()
     {
         QCOMPARE(UpdateChecker::compareVersions(QStringLiteral("1.1.0"), QStringLiteral("1.1.0-rc1")), 1);

@@ -151,11 +151,15 @@ int main(int argc, char *argv[])
     const bool statsSmokeTest = qEnvironmentVariable("KTOMATO_STATS_SMOKE_TEST") == QStringLiteral("1");
     engine.rootContext()->setContextProperty(QStringLiteral("appStatsSmokeTest"), statsSmokeTest);
     engine.rootContext()->setContextProperty(QStringLiteral("appSmokePage"), smokePage);
-    if (statsSmokeTest || !smokePage.isEmpty()) {
-        QObject::connect(&engine, &QQmlApplicationEngine::warnings, &app, [](const QList<QQmlError> &warnings) {
+    const bool smokeTest = statsSmokeTest || !smokePage.isEmpty();
+    int smokeWarnings = 0;
+    if (smokeTest) {
+        // Any QML warning (a failed binding, an undefined property...) fails the smoke test.
+        QObject::connect(&engine, &QQmlApplicationEngine::warnings, &app, [&smokeWarnings](const QList<QQmlError> &warnings) {
             for (const QQmlError &warning : warnings) {
                 qWarning().noquote() << warning.toString();
             }
+            smokeWarnings += int(warnings.size());
         });
     }
 
@@ -191,9 +195,14 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
     silence->attach(timer, presets, inhibitor.get());
-    new DBusTimerService(timer, timer);
-    QDBusConnection::sessionBus().registerObject(QStringLiteral("/Timer"), timer, QDBusConnection::ExportAdaptors);
+    // Global shortcuts, scripts and KRunner: only while the settings allow other programs to control the timer.
+    const auto externalControlAllowed = [settings]() { return settings->allowExternalControl(); };
+    auto *timerDBusObject = new TimerDBusObject(timer);
+    auto *dbusTimer = new DBusTimerService(timer, timerDBusObject);
+    dbusTimer->setControlAllowed(externalControlAllowed);
+    QDBusConnection::sessionBus().registerObject(QStringLiteral("/Timer"), timerDBusObject, QDBusConnection::ExportAdaptors);
     auto *krunner = new KRunnerService(timer, presets, &services);
+    krunner->setControlAllowed(externalControlAllowed);
     QDBusConnection::sessionBus().registerObject(QStringLiteral("/krunner"), krunner, QDBusConnection::ExportAllSlots);
     auto *recorder = new SessionRecorder(timer, presets, &sessionRepository, &services);
 
@@ -207,6 +216,7 @@ int main(int argc, char *argv[])
     stats->refreshEnvironment();
     auto *dataManager = new DataManager(database.get(), &sessionRepository, &presetRepository, presets, stats, &services);
     dataManager->setSessionRecorder(recorder);
+    dataManager->setPresetPersistence(presetPersistence);
     engine.rootContext()->setContextProperty(QStringLiteral("DataManager"), dataManager);
 
     QObject::connect(settings, &AppSettings::languageChanged, &engine, &QQmlApplicationEngine::retranslate);
@@ -233,6 +243,15 @@ int main(int argc, char *argv[])
     if (calendarSync) {
         QObject::connect(recorder, &SessionRecorder::workSessionRecorded, calendarSync, &CalendarSync::enqueueWorkSession);
         QObject::connect(dataManager, &DataManager::sessionNoteChanged, calendarSync, &CalendarSync::onNoteChanged);
+        // The calendar login and server never appear in a diagnostics report.
+        const auto updateRedactions = [calendarSync]() {
+            Diagnostics::setAccountRedactions({calendarSync->username(), QUrl(calendarSync->serverUrl()).host(),
+                                               QUrl(calendarSync->calendarUrl()).host()});
+        };
+        updateRedactions();
+        for (const auto signal : {&CalendarSync::usernameChanged, &CalendarSync::serverUrlChanged, &CalendarSync::calendarUrlChanged}) {
+            QObject::connect(calendarSync, signal, calendarSync, updateRedactions);
+        }
     }
     auto *focusSound = new FocusSoundController(&services);
     focusSound->attach(timer, settings);
@@ -296,5 +315,18 @@ int main(int argc, char *argv[])
                          });
     }
 
-    return app.exec();
+    const int status = app.exec();
+
+    // Teardown. Nothing outside may reach what is about to go: first the D-Bus objects (the timer
+    // is an engine singleton, the runner a child of `services`), then the context properties
+    // that point into `services`, which is destroyed before the engine and its window.
+    QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/krunner"));
+    QDBusConnection::sessionBus().unregisterObject(QStringLiteral("/Timer"));
+    engine.rootContext()->setContextProperty(QStringLiteral("DataManager"), QVariant::fromValue<QObject *>(nullptr));
+    engine.rootContext()->setContextProperty(QStringLiteral("FocusSoundController"), QVariant::fromValue<QObject *>(nullptr));
+    if (smokeTest && status == EXIT_SUCCESS && smokeWarnings > 0) {
+        qCritical() << "The smoke test produced" << smokeWarnings << "QML warning(s)";
+        return 30;
+    }
+    return status;
 }

@@ -2,7 +2,9 @@
 #pragma once
 
 #include <QDateTime>
+#include <QList>
 #include <QObject>
+#include <QTimer>
 
 #include "TimerEngine.h"
 #include "SessionRepository.h"
@@ -19,6 +21,9 @@ class PresetModel;
  *
  * Phases cut short by stop/skip are kept only if they lasted at least
  * kMinInterruptedMs, so accidental starts do not clutter the statistics.
+ *
+ * A session that cannot be stored (database busy, disk full...) is not dropped: it is kept in
+ * memory and stored again at the next phase end or retry, and isSaveFailing() says so meanwhile.
  */
 class SessionRecorder : public QObject
 {
@@ -38,10 +43,15 @@ public:
     /// later note cannot land on an unrelated row that happens to reuse the id.
     void forgetLastWorkSession() { m_lastWorkSessionId = -1; }
 
+    /// True while some ended sessions could not be stored yet.
+    bool isSaveFailing() const { return !m_unsaved.isEmpty(); }
+    void setRetryIntervalForTesting(int ms) { m_retryTimer.setInterval(ms); }
+
 Q_SIGNALS:
     void sessionRecorded();
     /// A Work phase ran to its end and was stored; record.id is its new row id.
     void workSessionRecorded(const SessionRecord &record);
+    void saveFailingChanged();
 
 private Q_SLOTS:
     void onPhaseStarted(TimerEngine::Phase phase);
@@ -53,8 +63,13 @@ private Q_SLOTS:
                         bool completed);
 
 private:
+    bool store(const SessionRecord &record);
+    void storeUnsaved();
+
     PresetModel *m_presets;
     SessionRepository *m_repository;
     TimerPreset m_active; ///< Preset captured at the start of the running phase.
     qint64 m_lastWorkSessionId = -1;
+    QList<SessionRecord> m_unsaved; ///< Ended sessions the database refused, oldest first.
+    QTimer m_retryTimer;
 };

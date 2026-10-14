@@ -109,6 +109,27 @@ QString Diagnostics::recentLogs() const
     return lines.join(QLatin1Char('\n'));
 }
 
+namespace
+{
+QStringList &accountRedactions()
+{
+    static QStringList words;
+    return words;
+}
+} // namespace
+
+void Diagnostics::setAccountRedactions(const QStringList &words)
+{
+    QMutexLocker locker(&logMutex());
+    accountRedactions().clear();
+    for (const QString &word : words) {
+        // Very short words would blank out ordinary text.
+        if (word.trimmed().size() > 2) {
+            accountRedactions().append(word.trimmed());
+        }
+    }
+}
+
 QString Diagnostics::redact(const QString &text)
 {
     QString result = text;
@@ -121,9 +142,21 @@ QString Diagnostics::redact(const QString &text)
     static const QRegularExpression urlCredentialsRegex(QStringLiteral(R"(\b([A-Za-z][A-Za-z0-9+.-]*://)[^/\s@]+@)"));
     result.replace(urlCredentialsRegex, QStringLiteral("\\1<redacted>@"));
     static const QRegularExpression secretAssignmentRegex(
-        QStringLiteral(R"re(("?\b(?:app[_-]?password|password|passwd|secret|token)"?\s*[:=]\s*"?)[^\s",&;]+)re"),
+        // A quoted value up to its closing quote; an unquoted one up to the end of the line or a
+        // query-string '&' (a password may contain spaces, so a space does not end it).
+        QStringLiteral(R"re(("?\b(?:app[_-]?password|password|passwd|secret|token)"?\s*[:=]\s*)(?:"[^"\r\n]*"?|'[^'\r\n]*'?|[^\r\n&]+))re"),
         QRegularExpression::CaseInsensitiveOption);
     result.replace(secretAssignmentRegex, QStringLiteral("\\1<redacted>"));
+
+    // The accounts the user set up (the calendar login can differ from the system user name).
+    QStringList accounts;
+    {
+        QMutexLocker locker(&logMutex());
+        accounts = accountRedactions();
+    }
+    for (const QString &word : std::as_const(accounts)) {
+        result.replace(word, QStringLiteral("<account>"), Qt::CaseInsensitive);
+    }
 
     // 1. Redact the home directory path (and its resolved form, if it is a symlink)
     const QString home = QDir::homePath();

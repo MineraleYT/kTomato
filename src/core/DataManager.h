@@ -6,6 +6,7 @@
 
 class Database;
 class PresetModel;
+class PresetPersistence;
 class PresetRepository;
 class SessionRecorder;
 class SessionRepository;
@@ -19,6 +20,8 @@ class DataManager : public QObject
     Q_PROPERTY(int sessionCount READ sessionCount NOTIFY dataChanged FINAL)
     /// True when running on an in-memory database (the file could not be used): nothing is saved.
     Q_PROPERTY(bool usingTemporaryDatabase READ usingTemporaryDatabase CONSTANT FINAL)
+    /// True while finished sessions or timer changes could not be stored (they are retried).
+    Q_PROPERTY(bool saveFailing READ saveFailing NOTIFY saveFailingChanged FINAL)
 
 public:
     DataManager(Database *database, SessionRepository *sessions, PresetRepository *presetsRepository,
@@ -27,9 +30,12 @@ public:
     int sessionCount() const;
     int presetCount() const;
     bool usingTemporaryDatabase() const;
+    bool saveFailing() const;
 
     /// Tracks newly recorded sessions: keeps sessionCount current and provides lastWorkSessionId().
     void setSessionRecorder(SessionRecorder *recorder);
+    /// Reports failed timer saves through saveFailing.
+    void setPresetPersistence(PresetPersistence *persistence);
     /// Row id of the most recently ended Work phase, or -1 if it was not recorded or there is no recorder.
     Q_INVOKABLE qint64 lastWorkSessionId() const;
 
@@ -45,6 +51,7 @@ Q_SIGNALS:
     void operationFailed(const QString &message);
     void operationSucceeded(const QString &message);
     void dataChanged();
+    void saveFailingChanged();
     /// A session note was stored (also emitted for an empty note).
     void sessionNoteChanged(qint64 sessionId, const QString &note);
 
@@ -56,4 +63,5 @@ private:
     PresetModel *m_presets;
     StatsModel *m_stats;
     SessionRecorder *m_recorder = nullptr;
+    PresetPersistence *m_presetPersistence = nullptr;
 };

@@ -12,9 +12,10 @@ Kirigami.Page {
 
     header: Kirigami.InlineMessage {
         position: Kirigami.InlineMessage.Position.Header
-        visible: ScreenLockWatcher.pausedByScreenLock && TimerEngine.paused
+        visible: (ScreenLockWatcher.pausedByScreenLock || ScreenLockWatcher.pausedBySleep) && TimerEngine.paused
         type: Kirigami.MessageType.Information
-        text: i18n("The timer was paused because your screen was locked.")
+        text: ScreenLockWatcher.pausedBySleep ? i18n("The timer was paused because the computer went to sleep.")
+                                              : i18n("The timer was paused because your screen was locked.")
         actions: [
             Kirigami.Action {
                 text: i18n("Resume")
@@ -33,6 +34,58 @@ Kirigami.Page {
     }
 
     readonly property bool isIdle: TimerEngine.state === TimerEngine.State.Idle
+
+    // Stop and Skip end the phase at once, unless that would cut short a work session that has
+    // already run for a while: then they ask first. A quick mis-start stays one click away.
+    property int confirmAfterSeconds: 60
+    readonly property bool workUnderWay: TimerEngine.active && TimerEngine.phase === TimerEngine.Phase.Work
+        && TimerEngine.totalSeconds - TimerEngine.remainingSeconds >= confirmAfterSeconds
+    readonly property bool endConfirming: endPhaseDialog.visible
+
+    function requestStop(): void {
+        if (workUnderWay) {
+            endPhaseDialog.skipping = false;
+            endPhaseDialog.open();
+        } else {
+            TimerEngine.stop();
+        }
+    }
+
+    function requestSkip(): void {
+        if (workUnderWay) {
+            endPhaseDialog.skipping = true;
+            endPhaseDialog.open();
+        } else {
+            TimerEngine.skip();
+        }
+    }
+
+    Kirigami.PromptDialog {
+        id: endPhaseDialog
+        property bool skipping: false
+        title: skipping ? i18n("Skip This Work Session?") : i18n("Stop This Work Session?")
+        subtitle: skipping ? i18n("The rest of this work session is skipped and it is saved as interrupted.")
+                           : i18n("The work session ends now and is saved as interrupted.")
+        customFooterActions: [
+            Kirigami.Action {
+                text: endPhaseDialog.skipping ? i18n("Skip") : i18n("Stop")
+                icon.name: endPhaseDialog.skipping ? "media-skip-forward" : "media-playback-stop"
+                onTriggered: {
+                    endPhaseDialog.close();
+                    if (endPhaseDialog.skipping) {
+                        TimerEngine.skip();
+                    } else {
+                        TimerEngine.stop();
+                    }
+                }
+            },
+            Kirigami.Action {
+                text: i18n("Keep Working")
+                icon.name: "dialog-cancel"
+                onTriggered: endPhaseDialog.close()
+            }
+        ]
+    }
     readonly property bool isWorkPhase: TimerEngine.phase === TimerEngine.Phase.Work
 
     readonly property color phaseColor: {
@@ -155,6 +208,7 @@ Kirigami.Page {
 
                     QQC2.ComboBox {
                         id: presetBox
+                        objectName: "presetBox"
                         Layout.preferredWidth: Math.min(Kirigami.Units.gridUnit * 14,
                                                         page.availableWidth - Kirigami.Units.gridUnit * 4)
                         flat: true
@@ -473,7 +527,7 @@ Kirigami.Page {
                         icon.name: "media-playback-stop"
                         flat: true
                         enabled: TimerEngine.active
-                        onClicked: TimerEngine.stop()
+                        onClicked: page.requestStop()
                     }
 
                     QQC2.Button {
@@ -482,7 +536,7 @@ Kirigami.Page {
                         icon.name: "media-skip-forward"
                         flat: true
                         enabled: TimerEngine.active
-                        onClicked: TimerEngine.skip()
+                        onClicked: page.requestSkip()
                     }
                 }
             }

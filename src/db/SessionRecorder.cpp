@@ -28,6 +28,37 @@ SessionRecorder::SessionRecorder(TimerEngine *engine, PresetModel *presets, Sess
 {
     connect(engine, &TimerEngine::phaseStarted, this, &SessionRecorder::onPhaseStarted);
     connect(engine, &TimerEngine::sessionEnded, this, &SessionRecorder::onSessionEnded);
+    m_retryTimer.setSingleShot(true);
+    m_retryTimer.setInterval(60 * 1000);
+    connect(&m_retryTimer, &QTimer::timeout, this, &SessionRecorder::storeUnsaved);
+}
+
+bool SessionRecorder::store(const SessionRecord &record)
+{
+    qint64 id = -1;
+    if (!m_repository->insert(record, &id)) {
+        return false;
+    }
+    Q_EMIT sessionRecorded();
+    if (record.kind == SessionKind::Work && record.completed) {
+        SessionRecord stored = record;
+        stored.id = id;
+        Q_EMIT workSessionRecorded(stored);
+    }
+    return true;
+}
+
+void SessionRecorder::storeUnsaved()
+{
+    const bool wasFailing = isSaveFailing();
+    while (!m_unsaved.isEmpty() && store(m_unsaved.first())) {
+        m_unsaved.removeFirst();
+    }
+    if (isSaveFailing()) {
+        m_retryTimer.start();
+    } else if (wasFailing) {
+        Q_EMIT saveFailingChanged();
+    }
 }
 
 void SessionRecorder::onPhaseStarted(TimerEngine::Phase)
@@ -60,8 +91,11 @@ void SessionRecorder::onSessionEnded(TimerEngine::Phase phase,
     record.presetUuid = m_active.uuid;
     record.presetName = m_active.name;
     record.category = m_active.category;
+
+    // Older sessions that could not be stored go first, so the history stays in order.
+    storeUnsaved();
     qint64 id = -1;
-    const bool inserted = m_repository->insert(record, &id);
+    const bool inserted = !isSaveFailing() && m_repository->insert(record, &id);
     if (isWork) {
         m_lastWorkSessionId = inserted ? id : -1;
     }
@@ -71,5 +105,12 @@ void SessionRecorder::onSessionEnded(TimerEngine::Phase phase,
             record.id = id;
             Q_EMIT workSessionRecorded(record);
         }
+        return;
+    }
+    const bool wasFailing = isSaveFailing();
+    m_unsaved.append(record);
+    m_retryTimer.start();
+    if (!wasFailing) {
+        Q_EMIT saveFailingChanged();
     }
 }

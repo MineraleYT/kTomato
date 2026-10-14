@@ -226,16 +226,65 @@ set_tests_properties(tst_diagnostics PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=off
 
 ecm_add_test(tst_calendarsync.cpp
     ${CORE}/CalendarSync.cpp
+    ${PLATFORM}/SecretStore.cpp
     TEST_NAME tst_calendarsync
-    LINK_LIBRARIES Qt6::Test Qt6::Core Qt6::Gui Qt6::Qml Qt6::Network KF6::ConfigCore KF6::I18n
+    LINK_LIBRARIES Qt6::Test Qt6::Core Qt6::Gui Qt6::Qml Qt6::Network Qt6::DBus KF6::ConfigCore KF6::I18n
 )
 set_tests_properties(tst_calendarsync PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+ecm_add_test(tst_phasenotifier.cpp
+    ${CORE}/PhaseNotifier.cpp
+    ${CORE}/TimerEngine.cpp
+    ${CORE}/PresetModel.cpp
+    ${CORE}/PresetSettings.cpp
+    ${CORE}/AppSettings.cpp
+    ${PLATFORM}/NotificationInhibitor.cpp
+    ${PLATFORM}/Autostart.cpp
+    ${PLATFORM}/SystemTray.cpp
+    TEST_NAME tst_phasenotifier
+    LINK_LIBRARIES Qt6::Test Qt6::Core Qt6::Gui Qt6::Qml Qt6::DBus KF6::ConfigCore KF6::I18n KF6::ColorScheme KF6::Notifications
+)
+# KNotification needs a GUI application; no display on CI.
+set_tests_properties(tst_phasenotifier PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+ecm_add_test(tst_dbustimerservice.cpp
+    ${PLATFORM}/DBusTimerService.cpp
+    ${CORE}/TimerEngine.cpp
+    TEST_NAME tst_dbustimerservice
+    LINK_LIBRARIES Qt6::Test Qt6::Core Qt6::Qml Qt6::DBus KF6::I18n
+)
+
+ecm_add_test(tst_secretstore.cpp
+    ${PLATFORM}/SecretStore.cpp
+    TEST_NAME tst_secretstore
+    LINK_LIBRARIES Qt6::Test Qt6::Core Qt6::DBus
+)
+
 foreach(test tst_timerengine tst_focussoundcontroller tst_datamanager tst_presetmodel tst_timerbinding tst_database tst_presetrepository tst_sessions
              tst_silence tst_freedesktopinhibitor tst_autostart tst_appsettings tst_traypresenter
-             tst_powerinhibitor tst_singleinstance tst_statsaggregator tst_csvexporter tst_statsmodel tst_krunnerservice tst_updatechecker tst_screenlockwatcher tst_diagnostics tst_calendarsync)
+             tst_powerinhibitor tst_singleinstance tst_statsaggregator tst_csvexporter tst_statsmodel tst_krunnerservice tst_updatechecker tst_screenlockwatcher tst_diagnostics tst_calendarsync tst_secretstore tst_phasenotifier tst_dbustimerservice)
     target_include_directories(${test} PRIVATE ${CORE} ${DB} ${PLATFORM} ${STATS} ${CMAKE_CURRENT_SOURCE_DIR})
 endforeach()
+
+# The installed runner definition carries the project version (see the top-level CMakeLists.txt).
+add_test(NAME tst_runner_version
+    COMMAND grep -qx "X-KDE-PluginInfo-Version=${PROJECT_VERSION}" ${CMAKE_BINARY_DIR}/io.github.mineraleyt.ktomato.runner.desktop
+)
+
+# Starts the program on a private bus, uses /Timer, quits with SIGTERM: the teardown must be clean.
+add_test(NAME tst_app_shutdown
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/shutdown_app.sh $<TARGET_FILE:ktomato>
+)
+set_tests_properties(tst_app_shutdown PROPERTIES TIMEOUT 30 SKIP_RETURN_CODE 77)
+
+# Colours in the interface come from the theme (or TrayIconStyle), never from literals.
+add_test(NAME tst_qml_colours
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/check_qml_colours.sh ${CMAKE_SOURCE_DIR}/src/qml
+)
+
+add_test(NAME tst_qml_sizes
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/check_qml_sizes.sh ${CMAKE_SOURCE_DIR}/src/qml
+)
 
 add_test(NAME tst_app_startup
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/smoke_app.sh $<TARGET_FILE:ktomato>
@@ -261,6 +310,11 @@ add_test(NAME tst_presets_page_ui
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/smoke_app.sh $<TARGET_FILE:ktomato> presets
 )
 set_tests_properties(tst_presets_page_ui PROPERTIES TIMEOUT 10)
+
+add_test(NAME tst_timer_page_ui
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/smoke_app.sh $<TARGET_FILE:ktomato> timer
+)
+set_tests_properties(tst_timer_page_ui PROPERTIES TIMEOUT 10)
 
 add_test(NAME tst_welcome_page_ui
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/smoke_app.sh $<TARGET_FILE:ktomato> welcome

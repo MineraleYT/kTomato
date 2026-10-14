@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QFile>
+#include <QFileInfo>
 #include <QSignalSpy>
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -13,6 +14,7 @@
 #include "Database.h"
 #include "FakeClock.h"
 #include "PresetModel.h"
+#include "PresetPersistence.h"
 #include "PresetRepository.h"
 #include "SessionRecorder.h"
 #include "SessionRepository.h"
@@ -231,7 +233,23 @@ private Q_SLOTS:
         QCOMPARE(sessions->between(0, 2000).first().presetName, QStringLiteral("Existing"));
     }
 
-    void missingBackupFileIsNotCreated()
+    void backupIsReadableOnlyByItsOwner()
+    {
+        // The whole history (timer names, categories, notes) goes into it, wherever it is saved.
+        const QString path = dir.filePath(QStringLiteral("backup.db"));
+        QVERIFY(manager->backupDatabase(QUrl::fromLocalFile(path)));
+        const QFile::Permissions permissions = QFileInfo(path).permissions();
+        QVERIFY(permissions & QFile::ReadOwner);
+        QVERIFY2(!(permissions & (QFile::ReadGroup | QFile::WriteGroup | QFile::ReadOther | QFile::WriteOther)),
+                 "the backup must not be readable by other users");
+
+        // Also when an existing (public) file is replaced.
+        QVERIFY(QFile::setPermissions(path, permissions | QFile::ReadOther | QFile::ReadGroup));
+        QVERIFY(manager->backupDatabase(QUrl::fromLocalFile(path)));
+        QVERIFY(!(QFileInfo(path).permissions() & (QFile::ReadGroup | QFile::ReadOther)));
+    }
+
+        void missingBackupFileIsNotCreated()
     {
         const QString missing = dir.filePath(QStringLiteral("does-not-exist.db"));
         QVERIFY(!manager->restoreDatabase(QUrl::fromLocalFile(missing)));
@@ -265,7 +283,37 @@ private Q_SLOTS:
         QCOMPARE(manager->lastWorkSessionId(), -1);
     }
 
-    void temporaryDatabaseIsReported()
+    void saveFailuresAreReportedUntilTheyAreStored()
+    {
+        FakeClock clock;
+        TimerEngine engine(&clock, nullptr);
+        SessionRecorder recorder(&engine, presetModel.get(), sessions.get());
+        recorder.setRetryIntervalForTesting(30);
+        PresetPersistence persistence(presetModel.get(), presetRepository.get());
+        persistence.setRetryIntervalForTesting(30);
+        manager->setSessionRecorder(&recorder);
+        manager->setPresetPersistence(&persistence);
+        QSignalSpy failing(manager.get(), &DataManager::saveFailingChanged);
+        QVERIFY(!manager->saveFailing());
+
+        QSqlQuery query(QSqlDatabase::database(database->connectionName()));
+        QVERIFY(query.exec(QStringLiteral("CREATE TEMP TRIGGER refuse BEFORE INSERT ON session "
+                                          "BEGIN SELECT RAISE(ABORT, 'disk full'); END")));
+        engine.start();
+        clock.advanceSeconds(25 * 60);
+        engine.refresh();
+        QVERIFY(manager->saveFailing());
+        QVERIFY(failing.count() >= 1);
+
+        QVERIFY(query.exec(QStringLiteral("DROP TRIGGER refuse")));
+        QTRY_VERIFY(!manager->saveFailing());
+        QCOMPARE(manager->sessionCount(), 1);
+
+        manager->setSessionRecorder(nullptr);
+        manager->setPresetPersistence(nullptr);
+    }
+
+        void temporaryDatabaseIsReported()
     {
         QVERIFY(!manager->usingTemporaryDatabase());
         Database memory(QStringLiteral(":memory:"));

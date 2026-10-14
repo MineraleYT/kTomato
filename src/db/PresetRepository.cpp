@@ -60,6 +60,9 @@ QList<TimerPreset> PresetRepository::loadAll(bool *ok) const
         const QVariant value = decodeValue(optionQuery.value(2).toString());
         if (value.isValid()) {
             optionsById[optionQuery.value(0).toLongLong()].insert(optionQuery.value(1).toString(), value);
+        } else {
+            // Left in the database untouched (saveAll() keeps it), in case a later version reads it.
+            qCWarning(lcPresetRepo) << "Ignoring an unreadable value of timer option" << optionQuery.value(1).toString();
         }
     }
 
@@ -117,7 +120,9 @@ bool PresetRepository::saveAll(const QList<TimerPreset> &presets)
     QSqlQuery findId(db);
     findId.prepare(QStringLiteral("SELECT id FROM preset WHERE uuid = ?"));
     QSqlQuery clearOptions(db);
-    clearOptions.prepare(QStringLiteral("DELETE FROM preset_option WHERE preset_id = ?"));
+    clearOptions.prepare(QStringLiteral("DELETE FROM preset_option WHERE preset_id = ? AND key = ?"));
+    QSqlQuery storedOptions(db);
+    storedOptions.prepare(QStringLiteral("SELECT key, value FROM preset_option WHERE preset_id = ?"));
     QSqlQuery insertOption(db);
     insertOption.prepare(QStringLiteral("INSERT INTO preset_option (preset_id, key, value) VALUES (?, ?, ?)"));
 
@@ -148,9 +153,26 @@ bool PresetRepository::saveAll(const QList<TimerPreset> &presets)
         const qint64 id = findId.value(0).toLongLong();
         findId.finish();
 
-        clearOptions.addBindValue(id);
-        if (!clearOptions.exec()) {
-            return fail(clearOptions);
+        // Rewrite the options, except stored values that could not be read (loadAll() skipped them,
+        // so the model cannot have meant to remove them): those stay as they are.
+        storedOptions.addBindValue(id);
+        if (!storedOptions.exec()) {
+            return fail(storedOptions);
+        }
+        QStringList replaced;
+        while (storedOptions.next()) {
+            const QString key = storedOptions.value(0).toString();
+            if (decodeValue(storedOptions.value(1).toString()).isValid() || p.options.contains(key)) {
+                replaced.append(key);
+            }
+        }
+        storedOptions.finish();
+        for (const QString &key : std::as_const(replaced)) {
+            clearOptions.addBindValue(id);
+            clearOptions.addBindValue(key);
+            if (!clearOptions.exec()) {
+                return fail(clearOptions);
+            }
         }
         for (auto it = p.options.cbegin(); it != p.options.cend(); ++it) {
             insertOption.addBindValue(id);

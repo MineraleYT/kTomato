@@ -57,7 +57,7 @@ Kirigami.Page {
         property real progress: 0
         property color color: Kirigami.Theme.highlightColor
         property color trackColor: Qt.alpha(Kirigami.Theme.textColor, 0.1)
-        property real lineWidth: 2
+        property real lineWidth: Kirigami.Units.smallSpacing / 2
         readonly property real radius: (Math.min(width, height) - lineWidth) / 2
         preferredRendererType: Shape.CurveRenderer
         // Never intercept clicks.
@@ -317,6 +317,8 @@ Kirigami.Page {
 
     // The kTomato tomato drawn in the app icon's 128x128 geometry, with growth stages:
     // sprout (stem + two leaves), swelling fruit, ripening (green to red), calyx and gloss.
+    // The tomato is drawn in a 128x128 box and scaled as a whole by its users.
+    // artwork-begin
     component TomatoArt: Item {
         id: art
         // Growth stages, 0..1. The defaults are the finished, ripe tomato.
@@ -369,13 +371,13 @@ Kirigami.Page {
                     PathAngleArc { centerX: 64; centerY: 76; radiusX: 48; radiusY: 44; startAngle: 0; sweepAngle: 360 }
                 }
             }
-            // Small glossy highlight.
+            // Small glossy highlight: a much lighter shade of the fruit's own (theme) colour.
             Rectangle {
                 x: 32; y: 50
                 width: 20; height: 9
                 radius: 4.5
                 rotation: -38
-                color: "white"
+                color: Qt.lighter(Kirigami.Theme.negativeTextColor, 1.9)
                 opacity: 0.4 * art.gloss
             }
         }
@@ -443,8 +445,11 @@ Kirigami.Page {
         }
     }
 
+    // artwork-end
+
     // The kTomato tray icon, imitating TrayController::trayIcon(): a crown, a dark dial,
-    // a clockwise progress ring in the phase colour and the remaining minutes.
+    // a clockwise progress ring in the phase colour and the remaining minutes. Its colours come
+    // from TrayIconStyle, the same definition the real icon is painted with.
     component TrayDial: Item {
         id: dial
         property real progress: 0
@@ -452,7 +457,7 @@ Kirigami.Page {
         // Total minutes of the running phase; the number counts down with the ring.
         readonly property int totalMinutes: isBreak ? 5 : 25
         readonly property int minutes: Math.max(1, Math.ceil(totalMinutes * (1 - progress) - 0.0001))
-        property color primary: isBreak ? Kirigami.Theme.positiveTextColor : Kirigami.Theme.negativeTextColor
+        property color primary: isBreak ? TrayIconStyle.breakColor : TrayIconStyle.workColor
         Behavior on primary { ColorAnimation { duration: 250 } }
 
         readonly property real crownW: Math.max(3, Math.round(width * 0.22))
@@ -483,7 +488,7 @@ Kirigami.Page {
             x: (dial.width - dial.dialD) / 2; y: dial.dialTop + 0.5
             width: dial.dialD; height: width
             radius: width / 2
-            color: Qt.rgba(20 / 255, 23 / 255, 28 / 255, 240 / 255)
+            color: TrayIconStyle.dialColor
         }
         Arc {
             x: dialBody.x; y: dialBody.y
@@ -491,13 +496,13 @@ Kirigami.Page {
             lineWidth: dial.penWidth
             progress: dial.progress
             color: dial.primary
-            trackColor: Qt.alpha(dial.primary, 55 / 255)
+            trackColor: Qt.alpha(dial.primary, TrayIconStyle.trackOpacity)
         }
         Text {
             anchors.centerIn: dialBody
             anchors.verticalCenterOffset: 0
             text: dial.minutes
-            color: "white"
+            color: TrayIconStyle.digitColor
             font.bold: true
             font.pixelSize: Math.round(dialBody.width * (text.length >= 2 ? 0.44 : 0.52))
         }
@@ -600,8 +605,8 @@ Kirigami.Page {
                         x: heroStage.homeX - width / 2
                         y: heroStage.homeY + 58 * heroStage.baseScale
                         width: Kirigami.Units.gridUnit * 3
-                        height: 3
-                        radius: 1.5
+                        height: Kirigami.Units.smallSpacing * 0.75
+                        radius: height / 2
                         color: Qt.alpha(Kirigami.Theme.textColor, 0.18)
                         opacity: heroStage.groundOpacity
                     }
@@ -662,6 +667,7 @@ Kirigami.Page {
                     }
 
                     TrayDial {
+                        objectName: "trayDialPreview"
                         id: heroDial
                         width: heroStage.dialSize
                         x: heroStage.slotX - width / 2
@@ -804,11 +810,14 @@ Kirigami.Page {
 
                     QQC2.ComboBox {
                         id: welcomeLanguageBox
+                        objectName: "welcomeLanguageBox"
                         Layout.preferredWidth: Kirigami.Units.gridUnit * 10
                         textRole: "text"
                         valueRole: "value"
                         Accessible.name: i18n("Language")
+                        // The same choices as in Settings, so following the system stays possible.
                         model: [
+                            { text: i18n("System default"), value: "auto" },
                             { text: "English", value: "en" },
                             { text: "Español", value: "es" },
                             { text: "Français", value: "fr" },
@@ -823,9 +832,9 @@ Kirigami.Page {
                             }
                         }
                         function syncSelection() {
-                            const eff = AppSettings.effectiveLanguage;
+                            const chosen = AppSettings.language;
                             for (let i = 0; i < model.length; ++i) {
-                                if (model[i].value === eff) {
+                                if (model[i].value === chosen) {
                                     currentIndex = i;
                                     return;
                                 }
@@ -853,36 +862,38 @@ Kirigami.Page {
                             id: stopwatch
                             property real handAngle: 0
                             readonly property real d: Math.round(width * 0.56)
+                            // Strokes follow the glyph's size, like an icon's.
+                            readonly property real stroke: Math.max(1, Math.round(width * 0.06))
                             readonly property color c: Kirigami.Theme.negativeTextColor
                             Rectangle {
                                 x: (stopwatch.width - width) / 2
-                                y: (stopwatch.height - stopwatch.d) / 2 - height + 1
-                                width: Math.round(stopwatch.width * 0.16); height: 3
-                                radius: 1
+                                y: (stopwatch.height - stopwatch.d) / 2 - height + stopwatch.stroke / 2
+                                width: Math.round(stopwatch.width * 0.16); height: stopwatch.stroke * 1.5
+                                radius: stopwatch.stroke / 2
                                 color: stopwatch.c
                             }
                             Rectangle {
                                 id: swFace
                                 x: (stopwatch.width - width) / 2
-                                y: (stopwatch.height - height) / 2 + 2
+                                y: (stopwatch.height - height) / 2 + stopwatch.stroke
                                 width: stopwatch.d; height: width
                                 radius: width / 2
                                 color: "transparent"
-                                border.width: 2
+                                border.width: stopwatch.stroke
                                 border.color: stopwatch.c
                             }
                             Rectangle {
                                 x: swFace.x + swFace.width / 2 - width / 2
                                 y: swFace.y + swFace.height / 2 - height
-                                width: 2; height: swFace.height * 0.36
-                                radius: 1
+                                width: stopwatch.stroke; height: swFace.height * 0.36
+                                radius: width / 2
                                 color: stopwatch.c
-                                transform: Rotation { origin.x: 1; origin.y: swFace.height * 0.36; angle: stopwatch.handAngle }
+                                transform: Rotation { origin.x: stopwatch.stroke / 2; origin.y: swFace.height * 0.36; angle: stopwatch.handAngle }
                             }
                             Rectangle {
-                                x: swFace.x + swFace.width / 2 - 2
-                                y: swFace.y + swFace.height / 2 - 2
-                                width: 4; height: 4; radius: 2
+                                x: swFace.x + swFace.width / 2 - width / 2
+                                y: swFace.y + swFace.height / 2 - height / 2
+                                width: stopwatch.stroke * 2; height: width; radius: width / 2
                                 color: stopwatch.c
                             }
                             SequentialAnimation {
@@ -903,12 +914,13 @@ Kirigami.Page {
                         glyph: Item {
                             id: plasmaGlyph
                             property real ripple: 0
+                            readonly property real stroke: Math.max(1, Math.round(width * 0.06))
                             Rectangle {
                                 anchors.centerIn: parent
                                 width: parent.width; height: width
                                 radius: width / 2
                                 color: "transparent"
-                                border.width: 2
+                                border.width: plasmaGlyph.stroke
                                 border.color: Kirigami.Theme.highlightColor
                                 opacity: 0.5 * (1 - plasmaGlyph.ripple)
                                 scale: 0.7 + 0.5 * plasmaGlyph.ripple
@@ -943,16 +955,17 @@ Kirigami.Page {
                             readonly property real bh: Math.round(width * 0.34)
                             readonly property real bx: (width - bw) / 2
                             readonly property real by: Math.round(height * 0.5)
+                            readonly property real stroke: Math.max(1, Math.round(width * 0.06))
                             // Shackle: a rounded outline that lifts and swings open.
                             Rectangle {
                                 id: shackle
                                 x: padlock.bx + padlock.bw * 0.2
-                                y: padlock.by - height + 2
+                                y: padlock.by - height + padlock.stroke
                                 width: padlock.bw * 0.6
                                 height: Math.round(padlock.width * 0.3)
                                 radius: width / 2
                                 color: "transparent"
-                                border.width: 2
+                                border.width: padlock.stroke
                                 border.color: padlock.c
                                 transform: [
                                     Rotation { origin.x: shackle.width; origin.y: shackle.height; angle: -34 * padlock.open },
@@ -962,21 +975,22 @@ Kirigami.Page {
                             Rectangle {
                                 x: padlock.bx; y: padlock.by
                                 width: padlock.bw; height: padlock.bh
-                                radius: 3
+                                radius: padlock.stroke * 1.5
                                 color: padlock.c
                                 // Keyhole.
                                 Rectangle {
                                     anchors.centerIn: parent
-                                    width: 4; height: 4; radius: 2
+                                    width: padlock.stroke * 2; height: width; radius: width / 2
                                     color: Kirigami.Theme.backgroundColor
                                     opacity: 1 - padlock.check
                                 }
-                                // Check mark.
+                                // Check mark, drawn in a 10x8 box and scaled to the padlock as a whole.
+                                // artwork-begin
                                 Shape {
                                     anchors.centerIn: parent
                                     width: 10; height: 8
                                     opacity: padlock.check
-                                    scale: 0.6 + 0.4 * padlock.check
+                                    scale: (0.6 + 0.4 * padlock.check) * padlock.bw / 22
                                     preferredRendererType: Shape.CurveRenderer
                                     ShapePath {
                                         strokeColor: Kirigami.Theme.backgroundColor
@@ -989,6 +1003,7 @@ Kirigami.Page {
                                         PathLine { x: 9; y: 1 }
                                     }
                                 }
+                                // artwork-end
                             }
                             SequentialAnimation {
                                 loops: Animation.Infinite
@@ -1214,9 +1229,9 @@ Kirigami.Page {
                                     Rectangle {
                                         x: -width / 2
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: 2
-                                        height: timeline.height - 2
-                                        radius: 1
+                                        width: Kirigami.Units.smallSpacing / 2
+                                        height: timeline.height - width
+                                        radius: width / 2
                                         color: Kirigami.Theme.textColor
                                     }
                                 }
@@ -1332,14 +1347,14 @@ Kirigami.Page {
 
                         Rectangle {
                             width: parent.width * 0.85
-                            height: 4
-                            radius: 2
+                            height: Kirigami.Units.smallSpacing
+                            radius: height / 2
                             color: Qt.alpha(Kirigami.Theme.textColor, 0.35)
                         }
                         Rectangle {
                             width: parent.width * 0.55
-                            height: 4
-                            radius: 2
+                            height: Kirigami.Units.smallSpacing
+                            radius: height / 2
                             color: Qt.alpha(Kirigami.Theme.textColor, 0.18)
                         }
                     }
@@ -1496,6 +1511,10 @@ Kirigami.Page {
                                 implicitHeight: Kirigami.Units.gridUnit * 2
                                 checkable: false
                                 checked: AppSettings.dailyGoal === modelData
+                                // Screen readers hear which goal is chosen, like a radio button.
+                                Accessible.role: Accessible.RadioButton
+                                Accessible.checkable: true
+                                Accessible.checked: checked
                                 Accessible.name: modelData === 0
                                     ? i18n("Disabled")
                                     : i18np("%1 pomodoro / day", "%1 pomodoros / day", modelData)
@@ -1643,15 +1662,28 @@ Kirigami.Page {
                 // Hide the dots when the window is too narrow to fit them between the buttons.
                 visible: parent.width - 2 * Math.max(skipButton.implicitWidth, navButtons.implicitWidth)
                     - Kirigami.Units.largeSpacing > implicitWidth
+                objectName: "welcomeIndicator"
                 count: swipeView.count
+                // Only ever follows the slides; the dots move the slides themselves, so nothing
+                // writes to this property and the binding can never be lost.
                 currentIndex: swipeView.currentIndex
-                interactive: true
-                onCurrentIndexChanged: swipeView.currentIndex = currentIndex
+                interactive: false
 
                 delegate: Item {
                     id: dot
                     required property int index
+                    objectName: "welcomeStepDot-" + index
                     readonly property bool active: index === indicator.currentIndex
+                    readonly property string accessibleName: i18nc("@action:button welcome tour", "Step %1 of %2", index + 1, indicator.count)
+                    function activate(): void {
+                        swipeView.setCurrentIndex(index);
+                    }
+                    Accessible.role: Accessible.Button
+                    Accessible.name: accessibleName
+                    Accessible.onPressAction: activate()
+                    TapHandler {
+                        onTapped: dot.activate()
+                    }
                     implicitWidth: active ? Kirigami.Units.gridUnit * 1.5 : Kirigami.Units.smallSpacing * 2
                     implicitHeight: Kirigami.Units.smallSpacing * 2
                     Behavior on implicitWidth {

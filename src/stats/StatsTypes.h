@@ -21,10 +21,14 @@ struct PeriodRange {
 };
 
 /// One bar of the chart: an hour (day view), a day (week and month views) or a month (year view).
+///
+/// The day view has one bar per real hour of the day: 23 or 25 on the days the clocks change,
+/// where an hour is skipped or happens twice (two bars with the same label).
 struct StatsBucket {
     QString label;      ///< Short axis label, localized ("Mon", "5", "Oct", "14").
     QDate date;         ///< The day, or the first day of the month; invalid for hours.
-    int hour = -1;      ///< 0..23 in the day view, else -1.
+    int hour = -1;      ///< Clock hour at the start of the bar (0..23) in the day view, else -1.
+    int endHour = -1;   ///< Clock hour at its end in the day view (3 for 1:00-3:00 when the clocks go forward), else -1.
     qint64 workSeconds = 0;
     qint64 breakSeconds = 0;
     bool isCurrent = false; ///< Contains "now": today, this month, this hour...

@@ -65,7 +65,8 @@ QString XdgAutostart::execLine(const QStringList &command)
 {
     QStringList quoted;
     for (const QString &argument : command) {
-        quoted << quoteArgument(argument);
+        // A literal '%' would start a field code (%f, %u...) and must be doubled, quoted or not.
+        quoted << quoteArgument(argument).replace(QLatin1Char('%'), QStringLiteral("%%"));
     }
     // The Exec quoting rules apply first, then the general string escaping, which doubles
     // every backslash (so a literal backslash inside quotes ends up as four).

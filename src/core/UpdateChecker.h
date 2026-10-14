@@ -55,6 +55,10 @@ public:
     /// < 0 if v1 < v2
     static int compareVersions(const QString &v1, const QString &v2);
 
+    /// True for a tag that reads as a version ("v1.2.3", "1.2.0-rc.1+b5"), at most 64 characters:
+    /// anything else from the server is not shown.
+    static bool isPlausibleVersionTag(const QString &tag);
+
     /// `url` if it is an https link into this project on github.com, else the project's releases page.
     static QString safeReleaseUrl(const QString &url);
 

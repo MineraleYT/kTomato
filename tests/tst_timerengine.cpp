@@ -2,10 +2,12 @@
 #include <QSignalSpy>
 #include <QTest>
 
+#include <limits>
 #include <memory>
 
 #include "FakeClock.h"
 #include "TimerEngine.h"
+#include "TimerPreset.h"
 
 
 using State = TimerEngine::State;
@@ -450,11 +452,30 @@ private Q_SLOTS:
         QCOMPARE(engine->phase(), Phase::Work);
         QCOMPARE(engine->completedCycles(), 1);
 
-        engine->skip(); // skip the pending work phase: counts like skipping a running one
+        engine->skip(); // skip the pending work phase: no work was done, so no cycle
         QCOMPARE(engine->state(), State::Idle);
         QCOMPARE(engine->phase(), Phase::ShortBreak);
-        QCOMPARE(engine->completedCycles(), 2);
+        QCOMPARE(engine->completedCycles(), 1);
         QCOMPARE(ended.count(), 0); // nothing ran, nothing recorded
+    }
+
+    void skippingWaitingWorkNeverReachesTheLongBreak()
+    {
+        // Pressing Skip on every "time to work" prompt must not earn a long break.
+        engine->setCyclesBeforeLong(2);
+        for (int i = 0; i < 6; ++i) {
+            QCOMPARE(engine->phase(), Phase::Work);
+            engine->skip(); // waiting work -> short break
+            QCOMPARE(engine->phase(), Phase::ShortBreak);
+            engine->skip(); // waiting break -> work
+        }
+        QCOMPARE(engine->completedCycles(), 0);
+
+        // With no short break there is nothing to skip to: work stays pending.
+        engine->setShortBreakSeconds(0);
+        engine->skip();
+        QCOMPARE(engine->phase(), Phase::Work);
+        QCOMPARE(engine->completedCycles(), 0);
     }
 
     void skipWhileIdleOverAPendingLongBreakEndsTheSet()
@@ -481,19 +502,157 @@ private Q_SLOTS:
         QCOMPARE(finished.at(0).at(1).value<Phase>(), Phase::Work);
     }
 
-    void zeroLengthLongBreakEndsTheSet()
+    void zeroLengthLongBreakGivesAShortBreakAndEndsTheSet()
     {
+        // "No long break" must not take the ordinary break away as well.
         engine->setCyclesBeforeLong(2);
         engine->setLongBreakSeconds(0);
+        engine->setShortBreakSeconds(5 * 60);
         engine->start();
         engine->skip();  // work 1 -> short break
         engine->skip();  // -> work 2
-        engine->skip();  // work 2 -> (no long break) -> work
+        engine->skip();  // work 2 -> (no long break) -> short break instead
+        QCOMPARE(engine->state(), State::ShortBreak);
+        QCOMPARE(engine->totalSeconds(), 5 * 60);
+        QCOMPARE(engine->completedCycles(), 0);
+
+        // The same when it elapses rather than being skipped.
+        engine->stop();
+        engine->setAutoStart(true);
+        engine->start();
+        elapse(25 * 60);  // work 1 -> short break
+        elapse(5 * 60);   // -> work 2
+        elapse(25 * 60);  // -> short break instead of the long one
+        QCOMPARE(engine->state(), State::ShortBreak);
+        QCOMPARE(engine->completedCycles(), 0);
+    }
+
+    void bothBreaksZeroGoesStraightBackToWork()
+    {
+        engine->setCyclesBeforeLong(2);
+        engine->setLongBreakSeconds(0);
+        engine->setShortBreakSeconds(0);
+        engine->start();
+        engine->skip();  // work 1 -> work 2
+        engine->skip();  // work 2 -> work, set ended
         QCOMPARE(engine->state(), State::Working);
         QCOMPARE(engine->completedCycles(), 0);
     }
 
-    void oneMinuteWarningIsNotEmittedForShortPhases()
+    void pendingLongBreakSetToZeroBecomesAShortBreak()
+    {
+        engine->setCyclesBeforeLong(1);
+        engine->setAutoStartMode(TimerEngine::AutoStartMode::Manual);
+        engine->start();
+        elapse(25 * 60);
+        QCOMPARE(engine->phase(), Phase::LongBreak);
+        engine->setLongBreakSeconds(0);
+        engine->start();
+        QCOMPARE(engine->state(), State::ShortBreak);
+        QCOMPARE(engine->completedCycles(), 0);
+    }
+
+    void timeSignalsFollowTheDisplayedSecondNotTheTicker()
+    {
+        // The ticker runs ten times a second; listeners (the progress ring repaints, the tray)
+        // only need to hear about it when the shown time moves.
+        engine->start();
+        QSignalSpy progress(engine.get(), &TimerEngine::progressChanged);
+        QSignalSpy remaining(engine.get(), &TimerEngine::remainingChanged);
+        for (int i = 0; i < 30; ++i) {
+            clock.advanceMs(100);
+            engine->refresh();
+        }
+        QCOMPARE(remaining.count(), 3);
+        QCOMPARE(progress.count(), 3);
+        QVERIFY(engine->progress() > 0.0);
+    }
+
+        void durationsHaveTheSameUpperBoundsAsTimers()
+    {
+        engine->setWorkSeconds(std::numeric_limits<int>::max());
+        QCOMPARE(engine->workSeconds(), PresetLimits::MaxWorkSeconds);
+        engine->setShortBreakSeconds(std::numeric_limits<int>::max());
+        QCOMPARE(engine->shortBreakSeconds(), PresetLimits::MaxBreakSeconds);
+        engine->setLongBreakSeconds(std::numeric_limits<int>::max());
+        QCOMPARE(engine->longBreakSeconds(), PresetLimits::MaxBreakSeconds);
+        engine->setCyclesBeforeLong(100000);
+        QCOMPARE(engine->cyclesBeforeLong(), PresetLimits::MaxCycles);
+
+        // A custom phase from any caller (QML, KRunner) cannot run for days, nor overflow.
+        engine->startCustomWork(std::numeric_limits<int>::max());
+        QCOMPARE(engine->totalSeconds(), PresetLimits::MaxWorkSeconds);
+        engine->stop();
+        engine->startCustomWork(-5);
+        QCOMPARE(engine->totalSeconds(), 1);
+    }
+
+    void phaseChangedAlreadySeesTheNewPhasesTiming()
+    {
+        engine->setAutoStart(true);
+        engine->start();
+        int remainingSeen = -1;
+        State stateSeen = State::Idle;
+        connect(engine.get(), &TimerEngine::phaseChanged, this, [&] {
+            remainingSeen = engine->remainingSeconds();
+            stateSeen = engine->state();
+        });
+        elapse(25 * 60); // work -> short break, auto-started
+        QCOMPARE(engine->phase(), Phase::ShortBreak);
+        QCOMPARE(remainingSeen, 5 * 60);
+        QCOMPARE(stateSeen, State::ShortBreak);
+    }
+
+    void startingAPhaseInTheSameStateSendsNoStateChange()
+    {
+        engine->setShortBreakSeconds(0);
+        engine->setCyclesBeforeLong(0);
+        engine->setAutoStart(true);
+        engine->start();
+        QSignalSpy state(engine.get(), &TimerEngine::stateChanged);
+        elapse(25 * 60); // work -> (no break) -> work
+        QCOMPARE(engine->state(), State::Working);
+        QCOMPARE(state.count(), 0);
+    }
+
+    void stopAfterTheDeadlineButBeforeTheTickCountsAsCompleted()
+    {
+        QSignalSpy ended(engine.get(), &TimerEngine::sessionEnded);
+        engine->start();
+        clock.advanceSeconds(25 * 60 + 1); // the time is up; the ticker has not run yet
+        engine->stop();
+        QCOMPARE(ended.count(), 1);
+        QCOMPARE(ended.first().at(5).toBool(), true); // completed
+        QCOMPARE(engine->state(), State::Idle);
+    }
+
+    void skipAfterTheDeadlineCompletesAndStartsTheNextPhase()
+    {
+        QSignalSpy ended(engine.get(), &TimerEngine::sessionEnded);
+        QSignalSpy finished(engine.get(), &TimerEngine::phaseFinished);
+        engine->start();
+        clock.advanceSeconds(25 * 60 + 1);
+        engine->skip();
+        QCOMPARE(ended.count(), 1);
+        QCOMPARE(ended.first().at(5).toBool(), true);
+        QCOMPARE(finished.count(), 1);
+        QCOMPARE(engine->state(), State::ShortBreak); // the break, not the work phase after it
+        QCOMPARE(engine->completedCycles(), 1);
+    }
+
+    void pauseAfterTheDeadlineCompletesFirst()
+    {
+        QSignalSpy ended(engine.get(), &TimerEngine::sessionEnded);
+        engine->start();
+        clock.advanceSeconds(25 * 60 + 1);
+        engine->pause(); // manual mode: the phase ends, nothing is left running to pause
+        QCOMPARE(ended.count(), 1);
+        QCOMPARE(ended.first().at(5).toBool(), true);
+        QCOMPARE(engine->state(), State::Idle);
+        QCOMPARE(engine->phase(), Phase::ShortBreak);
+    }
+
+        void oneMinuteWarningIsNotEmittedForShortPhases()
     {
         engine->setWorkSeconds(60);
         QSignalSpy warning(engine.get(), &TimerEngine::oneMinuteRemaining);

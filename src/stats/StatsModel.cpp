@@ -359,7 +359,7 @@ void StatsModel::recompute()
         switch (m_period) {
         case Period::Day:
             tooltip = i18n("%1:00 – %2:00\nWork: %3\nBreaks: %4",
-                           b.hour, (b.hour + 1) % 24,
+                           b.hour, b.endHour,
                            formatDuration(b.workSeconds),
                            formatDuration(b.breakSeconds));
             break;

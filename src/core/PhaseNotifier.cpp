@@ -67,10 +67,13 @@ void PhaseNotifier::onPhaseFinished(TimerEngine::Phase finished, TimerEngine::Ph
 
     // The silencing of a work phase is released the moment the phase ends. Wait until the
     // desktop confirms it, or this notification would be swallowed too.
+    // A desktop that never confirms the release cannot hold the announcement back for longer
+    // than m_releaseTimeoutMs: whenReleased() runs it then anyway.
     m_inhibitor->whenReleased(this, [this, finished, next, popup, sound, preset, autoStarted, serial, sessionId]() {
         if (sound && m_settings) {
             m_settings->playSoundPreview(m_settings->soundTheme(), m_settings->soundVolume());
         }
+        Q_EMIT phaseEndAnnounced(finished);
         if (!popup) {
             return;
         }
@@ -172,5 +175,5 @@ void PhaseNotifier::onPhaseFinished(TimerEngine::Phase finished, TimerEngine::Ph
         });
 
         notification->sendEvent();
-    });
+    }, m_releaseTimeoutMs);
 }

@@ -34,6 +34,10 @@ constexpr int CategoryModerate = 50;
 constexpr int CategoryHigh = 70;
 constexpr int CategoryHighest = 100;
 
+constexpr int kMaxCustomMinutes = 180;
+const QString kInvalidMinutesId = QStringLiteral("invalid-minutes");
+const QString kControlDisabledId = QStringLiteral("control-disabled");
+
 const QString ActionsKey = QStringLiteral("actions");
 const QString SubtextKey = QStringLiteral("subtext");
 
@@ -78,6 +82,14 @@ QList<RemoteMatch> KRunnerService::Match(const QString &searchTerm)
     }
     const QString subCommand = keywordMatch.captured(1).trimmed().toLower();
 
+    if (!controlAllowed()) {
+        RemoteMatch info = commandMatch(kControlDisabledId, i18n("kTomato: control from other programs is turned off"),
+                                        i18n("Open kTomato to change this in its settings"), QStringLiteral("io.github.mineraleyt.ktomato"));
+        info.properties.insert(ActionsKey, QStringList());
+        matches.append(info);
+        return matches;
+    }
+
     const int remSec = m_timer->remainingSeconds();
     const QString timeStr = QString::asprintf("%02d:%02d", remSec / 60, remSec % 60);
 
@@ -117,13 +129,20 @@ QList<RemoteMatch> KRunnerService::Match(const QString &searchTerm)
     }
 
     // 2. One-off work phase: e.g. "pomodoro 15". The preset's own duration is not changed.
-    static const QRegularExpression numRegex(QStringLiteral("^(\\d+)$"));
+    // ASCII digits only (\\d would also take other scripts' digits, which toInt() cannot read).
+    static const QRegularExpression numRegex(QStringLiteral("^([0-9]+)$"));
     const auto matchNum = numRegex.match(subCommand);
     if (matchNum.hasMatch()) {
-        const int mins = matchNum.captured(1).toInt();
-        if (mins > 0 && mins <= 180) {
+        bool ok = false;
+        const int mins = matchNum.captured(1).toInt(&ok); // ok is false on overflow
+        if (ok && mins > 0 && mins <= kMaxCustomMinutes) {
             matches.append(commandMatch(QStringLiteral("custom:") + QString::number(mins), i18n("Start %1-minute timer", mins),
                                         i18n("Start custom focus session"), QStringLiteral("chronometer")));
+        } else {
+            // Say why nothing can start, instead of showing nothing at all.
+            matches.append(commandMatch(kInvalidMinutesId, i18n("Choose between 1 and %1 minutes", kMaxCustomMinutes),
+                                        i18n("A custom focus session lasts 1 to %1 minutes.", kMaxCustomMinutes),
+                                        QStringLiteral("dialog-information")));
         }
         return matches;
     }
@@ -201,15 +220,26 @@ QList<RemoteMatch> KRunnerService::Match(const QString &searchTerm)
 
 void KRunnerService::Run(const QString &id, const QString &actionId)
 {
+    if (id == kControlDisabledId || (id == QStringLiteral("open") && actionId.isEmpty())) {
+        Q_EMIT openRequested();
+        return;
+    }
+    if (!controlAllowed()) {
+        return; // a match, or a button, from before the setting changed
+    }
     // A button on a match runs that button's command, not the match's own one.
     if (!actionId.isEmpty()) {
         runCommand(actionId);
         return;
     }
 
+    if (id == kInvalidMinutesId) {
+        return; // only an explanation
+    }
+
     if (id.startsWith(QStringLiteral("custom:"))) {
         const int mins = id.mid(7).toInt();
-        if (mins > 0 && mins <= 180) {
+        if (mins > 0 && mins <= kMaxCustomMinutes) {
             m_timer->startCustomWork(mins * 60);
         }
     } else if (id.startsWith(QStringLiteral("preset:"))) {
@@ -218,8 +248,6 @@ void KRunnerService::Run(const QString &id, const QString &actionId)
             m_presets->setCurrentUuid(uuid);
             m_timer->start();
         }
-    } else if (id == QStringLiteral("open")) {
-        Q_EMIT openRequested();
     } else {
         runCommand(id);
     }

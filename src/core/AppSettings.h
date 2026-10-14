@@ -33,6 +33,8 @@ class AppSettings : public QObject
     Q_PROPERTY(bool showTrayIcon READ showTrayIcon WRITE setShowTrayIcon NOTIFY showTrayIconChanged FINAL)
     /// Closing the window hides it instead of quitting (needs the tray icon).
     Q_PROPERTY(bool closeToTray READ closeToTray WRITE setCloseToTray NOTIFY closeToTrayChanged FINAL)
+    /// Other programs (global shortcuts, scripts over D-Bus, KRunner) may start, pause, skip and stop the timer.
+    Q_PROPERTY(bool allowExternalControl READ allowExternalControl WRITE setAllowExternalControl NOTIFY allowExternalControlChanged FINAL)
     Q_PROPERTY(bool startAtLogin READ startAtLogin WRITE setStartAtLogin NOTIFY startAtLoginChanged FINAL)
     /// When started at login, start without showing the window.
     Q_PROPERTY(bool startMinimized READ startMinimized WRITE setStartMinimized NOTIFY startMinimizedChanged FINAL)
@@ -102,6 +104,8 @@ public:
     void setShowTrayIcon(bool show);
     bool closeToTray() const { return m_closeToTray; }
     void setCloseToTray(bool close);
+    bool allowExternalControl() const { return m_allowExternalControl; }
+    void setAllowExternalControl(bool allow);
     bool startAtLogin() const;
     void setStartAtLogin(bool enabled);
     bool startMinimized() const { return m_startMinimized; }
@@ -161,6 +165,12 @@ public:
     static void applyStoredLanguage();
 
     Q_INVOKABLE void playSoundPreview(const QString &soundName, int volume = -1);
+    /// canberra-gtk-play arguments for an event sound name. The name is glued to its option, so
+    /// one that starts with '-' can never be read as another option.
+    static QStringList canberraArguments(const QString &soundName);
+    /// An event sound name ("complete", "alarm-clock-elapsed") or an absolute path to a file.
+    /// Anything else from the configuration ("../x", "-x", "a/b") is not looked up or played.
+    static bool isUsableSoundName(const QString &soundName);
     Q_INVOKABLE void openShortcutsSettings();
 
     bool keepRunningInTray() const;
@@ -172,6 +182,7 @@ public:
 Q_SIGNALS:
     void showTrayIconChanged();
     void closeToTrayChanged();
+    void allowExternalControlChanged();
     void startAtLoginChanged();
     void startMinimizedChanged();
     void trayBadgeStyleChanged();
@@ -210,6 +221,7 @@ private:
 
     bool m_showTrayIcon = true;
     bool m_closeToTray = true;
+    bool m_allowExternalControl = true;
     bool m_startMinimized = true;
     int m_trayBadgeStyle = 0;
     QString m_soundTheme = QStringLiteral("alarm-clock-elapsed");

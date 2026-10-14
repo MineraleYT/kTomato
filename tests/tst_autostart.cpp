@@ -166,6 +166,10 @@ private Q_SLOTS:
         QCOMPARE(XdgAutostart::execLine({QStringLiteral("a\\b")}), QStringLiteral("\"a\\\\\\\\b\""));
         // An empty argument must stay an argument.
         QCOMPARE(XdgAutostart::execLine({QStringLiteral("x"), QString()}), QStringLiteral("x \"\""));
+        // '%' starts a field code (%f, %u...): a literal one must be doubled, quoted or not.
+        QCOMPARE(XdgAutostart::execLine({QStringLiteral("/home/u/100%/ktomato"), QStringLiteral("--background")}),
+                 QStringLiteral("/home/u/100%%/ktomato --background"));
+        QCOMPARE(XdgAutostart::execLine({QStringLiteral("/home/u/100% done/ktomato")}), QStringLiteral("\"/home/u/100%% done/ktomato\""));
     }
 
     void aSpaceInThePathStillProducesAWorkingEntry()

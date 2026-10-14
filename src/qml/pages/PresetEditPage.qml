@@ -136,11 +136,9 @@ Kirigami.ScrollablePage {
         }
     }
 
-    function save(): void {
-        if (!valid) {
-            return;
-        }
-        const fields = {
+    /// What Save would store, as the controls show it now.
+    function currentFields(): var {
+        return {
             name: nameField.text,
             category: categoryField.text,
             iconName: page.selectedIcon,
@@ -153,6 +151,21 @@ Kirigami.ScrollablePage {
             soundOnEnd: soundBox.checked,
             notifyOnEnd: notifyBox.checked
         };
+    }
+
+    // The fields as the page opened, to tell whether anything was changed since.
+    property string initialFields: ""
+    // Taken once every control has its starting value.
+    Component.onCompleted: Qt.callLater(() => initialFields = JSON.stringify(currentFields()))
+    readonly property bool modified: initialFields.length > 0 && JSON.stringify(currentFields()) !== initialFields
+    /// A confirmation is showing (also read by the smoke test).
+    readonly property bool confirming: discardDialog.visible || resetDialog.visible
+
+    function save(): void {
+        if (!valid) {
+            return;
+        }
+        const fields = currentFields();
         if (isNew) {
             PresetModel.create(fields);
         } else {
@@ -177,6 +190,62 @@ Kirigami.ScrollablePage {
         applicationWindow().pageStack.pop();
     }
 
+    /// Cancel and Escape: unsaved changes are only thrown away once confirmed.
+    function requestClose(): void {
+        if (modified) {
+            discardDialog.open();
+        } else {
+            close();
+        }
+    }
+
+    function requestReset(): void {
+        resetDialog.open();
+    }
+
+    Kirigami.PromptDialog {
+        id: discardDialog
+        title: i18n("Discard Changes?")
+        subtitle: i18n("The changes you made to this timer have not been saved.")
+        customFooterActions: [
+            Kirigami.Action {
+                text: i18n("Discard")
+                icon.name: "edit-delete-remove"
+                onTriggered: {
+                    discardDialog.close();
+                    page.close();
+                }
+            },
+            Kirigami.Action {
+                text: i18n("Keep Editing")
+                icon.name: "document-edit"
+                onTriggered: discardDialog.close()
+            }
+        ]
+    }
+
+    Kirigami.PromptDialog {
+        id: resetDialog
+        title: i18n("Reset to Defaults?")
+        subtitle: i18n("“%1” goes back to its original durations and options. Your changes to it are lost.", page.preset.name || "")
+        customFooterActions: [
+            Kirigami.Action {
+                text: i18n("Reset")
+                icon.name: "edit-undo"
+                onTriggered: {
+                    resetDialog.close();
+                    PresetModel.reset(page.uuid);
+                    page.close();
+                }
+            },
+            Kirigami.Action {
+                text: i18n("Cancel")
+                icon.name: "dialog-cancel"
+                onTriggered: resetDialog.close()
+            }
+        ]
+    }
+
     Shortcut {
         sequences: [StandardKey.Save]
         enabled: page.isCurrentPage
@@ -185,8 +254,8 @@ Kirigami.ScrollablePage {
 
     Shortcut {
         sequences: [StandardKey.Cancel]
-        enabled: page.isCurrentPage && !autoStartBox.popup.visible
-        onActivated: page.close()
+        enabled: page.isCurrentPage && !autoStartBox.popup.visible && !page.confirming
+        onActivated: page.requestClose()
     }
 
     // Sticky action bar.
@@ -216,10 +285,7 @@ Kirigami.ScrollablePage {
                 flat: true
                 text: i18n("Reset to Defaults")
                 icon.name: "edit-undo"
-                onClicked: {
-                    PresetModel.reset(page.uuid);
-                    page.close();
-                }
+                onClicked: page.requestReset()
             }
 
             Item {
@@ -229,7 +295,7 @@ Kirigami.ScrollablePage {
             QQC2.Button {
                 text: i18n("Cancel")
                 icon.name: "dialog-cancel"
-                onClicked: page.close()
+                onClicked: page.requestClose()
             }
 
             QQC2.Button {
@@ -276,6 +342,7 @@ Kirigami.ScrollablePage {
                             id: nameField
                             Layout.fillWidth: true
                             text: page.preset.name
+                            maximumLength: PresetModel.maxNameLength
                             placeholderText: i18n("e.g. Deep work")
                             Accessible.name: i18n("Name:")
                             onAccepted: page.save()
@@ -296,6 +363,7 @@ Kirigami.ScrollablePage {
                             id: categoryField
                             Layout.fillWidth: true
                             text: page.preset.category
+                            maximumLength: PresetModel.maxNameLength
                             placeholderText: i18n("Optional, e.g. Work or Study")
                             Accessible.name: i18n("Category:")
                             onAccepted: page.save()
@@ -404,7 +472,7 @@ Kirigami.ScrollablePage {
                         Layout.preferredWidth: 1
                         label: i18n("Work:")
                         fieldFrom: 1
-                        fieldTo: 360
+                        fieldTo: PresetModel.maxWorkMinutes
                         fieldValue: Math.round(page.preset.workSeconds / 60)
                     }
 
@@ -414,7 +482,7 @@ Kirigami.ScrollablePage {
                         Layout.preferredWidth: 1
                         label: i18n("Short break:")
                         fieldFrom: 0
-                        fieldTo: 120
+                        fieldTo: PresetModel.maxBreakMinutes
                         fieldValue: Math.round(page.preset.shortBreakSeconds / 60)
                     }
 
@@ -424,7 +492,7 @@ Kirigami.ScrollablePage {
                         Layout.preferredWidth: 1
                         label: i18n("Long break:")
                         fieldFrom: 0
-                        fieldTo: 120
+                        fieldTo: PresetModel.maxBreakMinutes
                         fieldValue: Math.round(page.preset.longBreakSeconds / 60)
                     }
 
@@ -444,7 +512,7 @@ Kirigami.ScrollablePage {
                             Layout.fillWidth: true
                             Accessible.name: i18n("Long break after:")
                             from: 0
-                            to: 99
+                            to: PresetModel.maxCycles
                             value: page.preset.cyclesBeforeLong
                             textFromValue: (value, locale) => value === 0
                                 ? i18n("Never")

@@ -19,6 +19,10 @@ finish-args:
   - --talk-name=org.freedesktop.Notifications
   - --talk-name=org.freedesktop.ScreenSaver
   - --talk-name=org.kde.StatusNotifierWatcher
+  # The calendar password is kept in the desktop keyring (Secret Service).
+  - --talk-name=org.freedesktop.secrets
+  # Pauses the timer when the computer goes to sleep (logind's PrepareForSleep signal).
+  - --system-talk-name=org.freedesktop.login1
 modules:
   - name: ktomato
     buildsystem: cmake-ninja

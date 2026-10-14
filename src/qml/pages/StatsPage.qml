@@ -118,7 +118,7 @@ Kirigami.ScrollablePage {
 
     component SegBar: QQC2.TabBar {
         padding: 2
-        spacing: 2
+        spacing: Kirigami.Units.smallSpacing / 2
         background: Rectangle {
             color: Kirigami.Theme.backgroundColor
             border.width: 1
@@ -207,7 +207,7 @@ Kirigami.ScrollablePage {
             Rectangle {
                 visible: card.progress >= 0
                 Layout.fillWidth: true
-                Layout.preferredHeight: Kirigami.Units.smallSpacing + 2
+                Layout.preferredHeight: Kirigami.Units.smallSpacing * 1.5
                 radius: height / 2
                 color: Qt.alpha(Kirigami.Theme.textColor, 0.12)
 
@@ -284,7 +284,9 @@ Kirigami.ScrollablePage {
 
                 QQC2.CheckBox {
                     id: includeInterruptedBox
+                    objectName: "includeInterruptedBox"
                     text: i18n("Include interrupted")
+                    // A click sets `checked` from C++, which keeps this binding (the smoke test checks it).
                     checked: StatsModel.includeInterrupted
                     onToggled: StatsModel.includeInterrupted = checked
                 }
@@ -412,7 +414,8 @@ Kirigami.ScrollablePage {
                             return i18n("No daily goal set");
                         }
                         if (StatsModel.dailyGoalReached) {
-                            return i18n("Target reached today! 🎉");
+                            // The emoji stays out of the message translators see.
+                            return i18n("Target reached today!") + " 🎉";
                         }
                         return i18n("%1% of daily target", Math.round(StatsModel.dailyGoalProgress * 100));
                     }
@@ -599,7 +602,7 @@ Kirigami.ScrollablePage {
                                         readonly property real maxSec: StatsModel.maxBucketSeconds > 0 ? StatsModel.maxBucketSeconds : 3600
                                         readonly property real workHeight: Math.min(chart.plotHeight, (modelData.workSeconds / maxSec) * chart.plotHeight)
                                         readonly property real breakHeight: Math.min(chart.plotHeight, (modelData.breakSeconds / maxSec) * chart.plotHeight)
-                                        readonly property real barWidth: Math.max(2, Math.min(Kirigami.Units.gridUnit * 1.1,
+                                        readonly property real barWidth: Math.max(Kirigami.Units.smallSpacing / 2, Math.min(Kirigami.Units.gridUnit * 1.1,
                                                                                               (width - Kirigami.Units.smallSpacing * 2) / 2 - 1))
                                         readonly property bool showLabel: index % chart.labelStep === 0
                                                                           || (modelData.isCurrent && chart.labelStep === 1)
@@ -628,18 +631,18 @@ Kirigami.ScrollablePage {
                                             anchors.bottom: parent.bottom
                                             anchors.bottomMargin: chart.xLabelHeight
                                             anchors.horizontalCenter: parent.horizontalCenter
-                                            spacing: 2
+                                            spacing: Kirigami.Units.smallSpacing / 2
 
                                             RoundedBar {
                                                 width: bucketItem.barWidth
-                                                height: modelData.workSeconds > 0 ? Math.max(4, bucketItem.workHeight) : 0
+                                                height: modelData.workSeconds > 0 ? Math.max(Kirigami.Units.smallSpacing, bucketItem.workHeight) : 0
                                                 anchors.bottom: parent.bottom
                                                 color: Kirigami.Theme.highlightColor
                                             }
 
                                             RoundedBar {
                                                 width: bucketItem.barWidth
-                                                height: modelData.breakSeconds > 0 ? Math.max(4, bucketItem.breakHeight) : 0
+                                                height: modelData.breakSeconds > 0 ? Math.max(Kirigami.Units.smallSpacing, bucketItem.breakHeight) : 0
                                                 anchors.bottom: parent.bottom
                                                 color: Kirigami.Theme.positiveTextColor
                                             }
@@ -783,7 +786,7 @@ Kirigami.ScrollablePage {
 
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: Kirigami.Units.smallSpacing + 4
+                                    Layout.preferredHeight: Kirigami.Units.smallSpacing * 2
                                     radius: height / 2
                                     color: Qt.alpha(Kirigami.Theme.textColor, 0.1)
 

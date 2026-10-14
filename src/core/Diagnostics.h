@@ -47,6 +47,9 @@ public:
     /// Redacts personal paths (the home directory, /home/<name>), the user name and the
     /// user part of user@host from text.
     static QString redact(const QString &text);
+    /// Words that identify the user's accounts (the calendar login and server), redacted from
+    /// every report and log line from now on; replaces the previous list.
+    static void setAccountRedactions(const QStringList &words);
 
     /// Installs Qt message handler to capture application log messages into a ring buffer.
     static void installLogHandler();

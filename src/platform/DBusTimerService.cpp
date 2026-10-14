@@ -1,43 +1,60 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "DBusTimerService.h"
 
-DBusTimerService::DBusTimerService(TimerEngine *engine, QObject *parent)
-    : QDBusAbstractAdaptor(parent)
+#include <KLocalizedString>
+
+DBusTimerService::DBusTimerService(TimerEngine *engine, TimerDBusObject *host)
+    : QDBusAbstractAdaptor(host)
     , m_engine(engine)
 {
 }
 
+bool DBusTimerService::mayControl()
+{
+    if (!m_engine) {
+        return false;
+    }
+    if (!m_allowed || m_allowed()) {
+        return true;
+    }
+    auto *host = static_cast<TimerDBusObject *>(parent());
+    if (host->calledFromDBus()) {
+        host->sendErrorReply(ControlDisabledError, i18n("Control by other programs is turned off in kTomato's settings."));
+    }
+    return false;
+}
+
 void DBusTimerService::toggle()
 {
-    if (m_engine) {
+    if (mayControl()) {
         m_engine->toggle();
     }
 }
 
 void DBusTimerService::start()
 {
-    if (m_engine) {
+    if (mayControl()) {
         m_engine->start();
     }
 }
 
 void DBusTimerService::pause()
 {
-    if (m_engine) {
+    if (mayControl()) {
         m_engine->pause();
     }
 }
 
 void DBusTimerService::stop()
 {
-    if (m_engine) {
+    if (mayControl()) {
         m_engine->stop();
     }
 }
 
 void DBusTimerService::skip()
 {
-    if (m_engine) {
+    if (mayControl()) {
         m_engine->skip();
     }
 }

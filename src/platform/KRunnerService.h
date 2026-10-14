@@ -8,6 +8,8 @@
 #include <QVariantMap>
 #include <QList>
 
+#include <functional>
+
 class TimerEngine;
 class PresetModel;
 
@@ -81,6 +83,10 @@ public:
 
     static void registerMetaTypes();
 
+    /// Asked before matching or running anything; without one, everything is allowed. When it
+    /// says no, KRunner only offers to open kTomato (where the setting is).
+    void setControlAllowed(std::function<bool()> allowed) { m_allowed = std::move(allowed); }
+
 public Q_SLOTS:
     QList<RemoteAction> Actions();
     QList<RemoteMatch> Match(const QString &searchTerm);
@@ -93,6 +99,9 @@ Q_SIGNALS:
 private:
     void runCommand(const QString &command);
 
+    bool controlAllowed() const { return !m_allowed || m_allowed(); }
+
     TimerEngine *m_timer;
     PresetModel *m_presets;
+    std::function<bool()> m_allowed;
 };

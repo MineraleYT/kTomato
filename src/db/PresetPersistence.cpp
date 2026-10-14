@@ -13,6 +13,10 @@ PresetPersistence::PresetPersistence(PresetModel *model, PresetRepository *repos
     , m_model(model)
     , m_repository(repository)
 {
+    m_retryTimer.setSingleShot(true);
+    m_retryTimer.setInterval(60 * 1000);
+    connect(&m_retryTimer, &QTimer::timeout, this, &PresetPersistence::savePresets);
+
     bool ok = false;
     const QList<TimerPreset> stored = m_repository->loadAll(&ok);
     if (ok && !stored.isEmpty()) {
@@ -36,11 +40,32 @@ PresetPersistence::PresetPersistence(PresetModel *model, PresetRepository *repos
 
 void PresetPersistence::savePresets()
 {
-    m_repository->saveAll(m_model->presets());
-    saveSelection();
+    const bool saved = m_repository->saveAll(m_model->presets());
+    setSaveFailing(!saved);
+    if (saved) {
+        saveSelection();
+    }
 }
 
 void PresetPersistence::saveSelection()
 {
-    m_repository->setCurrentUuid(m_model->currentUuid());
+    if (m_saveFailing) {
+        // The retry saves everything, the selection included.
+        return;
+    }
+    setSaveFailing(!m_repository->setCurrentUuid(m_model->currentUuid()));
+}
+
+void PresetPersistence::setSaveFailing(bool failing)
+{
+    if (failing) {
+        qCWarning(lcPresetPersistence) << "Cannot save the timers; trying again later";
+        m_retryTimer.start();
+    } else {
+        m_retryTimer.stop();
+    }
+    if (failing != m_saveFailing) {
+        m_saveFailing = failing;
+        Q_EMIT saveFailingChanged();
+    }
 }

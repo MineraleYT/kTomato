@@ -85,7 +85,10 @@ Kirigami.ScrollablePage {
                 text: i18n("Delete")
                 icon.name: "edit-delete"
                 onTriggered: {
-                    PresetModel.remove(deleteDialog.uuid);
+                    // The timer may have been started meanwhile (tray, shortcut, D-Bus).
+                    if (!(TimerEngine.active && PresetModel.currentUuid === deleteDialog.uuid)) {
+                        PresetModel.remove(deleteDialog.uuid);
+                    }
                     deleteDialog.close();
                 }
             },
@@ -294,8 +297,10 @@ Kirigami.ScrollablePage {
                             onClicked: PresetModel.duplicate(delegate.uuid)
                         }
                         // A disabled button gets no hover events, so the wrapper shows why the
-                        // default timer cannot be deleted.
+                        // default timer, or the one running now, cannot be deleted.
                         Item {
+                            // Deleting the running timer would switch timers, which stops the session.
+                            readonly property bool lockedByTimer: delegate.isCurrent && TimerEngine.active
                             implicitWidth: deleteButton.implicitWidth
                             implicitHeight: deleteButton.implicitHeight
 
@@ -303,17 +308,20 @@ Kirigami.ScrollablePage {
                                 id: deleteHover
                             }
 
-                            QQC2.ToolTip.visible: delegate.builtin && deleteHover.hovered
+                            QQC2.ToolTip.visible: !deleteButton.enabled && deleteHover.hovered
                             QQC2.ToolTip.text: deleteButton.text
                             QQC2.ToolTip.delay: Kirigami.Units.toolTipDelay
 
                             RowButton {
                                 id: deleteButton
+                                objectName: "deleteButton-" + delegate.uuid
                                 anchors.fill: parent
                                 danger: true
                                 icon.name: "edit-delete"
-                                text: delegate.builtin ? i18n("The default timer cannot be deleted") : i18n("Delete")
-                                enabled: !delegate.builtin
+                                text: delegate.builtin ? i18n("The default timer cannot be deleted")
+                                    : parent.lockedByTimer ? i18n("This timer is running. Stop it to delete it.")
+                                    : i18n("Delete")
+                                enabled: !delegate.builtin && !parent.lockedByTimer
                                 QQC2.ToolTip.visible: hovered && enabled
                                 onClicked: {
                                     deleteDialog.uuid = delegate.uuid;

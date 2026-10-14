@@ -114,7 +114,24 @@ private Q_SLOTS:
         QTRY_VERIFY_WITH_TIMEOUT(QFileInfo(capture).size() >= 44100, 3000);
     }
 
-    void invalidModesAreClamped()
+    void previewNeverChangesTheWorkPhaseVolume()
+    {
+        engine->start(); // playing at the work volume (45)
+        QTRY_VERIFY_WITH_TIMEOUT(sounds->isPlaying(), 3000);
+        sounds->preview(static_cast<int>(FocusSoundController::Mode::Rain), 90);
+        QCOMPARE(sounds->playbackVolume(), 90);
+        QCOMPARE(sounds->volume(), 45);
+
+        // A change of the setting during the preview is kept, not replaced by the preview's.
+        sounds->setVolume(60);
+        QCOMPARE(sounds->playbackVolume(), 90);
+        sounds->stopPreview();
+        QCOMPARE(sounds->volume(), 60);
+        QCOMPARE(sounds->playbackVolume(), 60);
+        QVERIFY(sounds->isPlaying()); // the work phase goes on with its sound
+    }
+
+        void invalidModesAreClamped()
     {
         sounds->setMode(9);
         QCOMPARE(sounds->mode(), 3);

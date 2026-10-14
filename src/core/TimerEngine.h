@@ -26,8 +26,8 @@
  *   any active  --skip-->             next phase, started immediately    (session saved as interrupted;
  *                                     a skipped Work phase still counts as a cycle)
  *   Idle        --skip-->             Idle, pending phase advanced       (nothing recorded; a pending break
- *                                     becomes a pending Work phase, a pending Work phase counts as a
- *                                     cycle and becomes the following break)
+ *                                     becomes a pending Work phase, a pending Work phase becomes a
+ *                                     short break without counting a cycle: no work was done)
  *   Working     --time elapsed-->     ShortBreak, or LongBreak once `cyclesBeforeLong` work phases completed
  *   ShortBreak  --time elapsed-->     Working
  *   LongBreak   --time elapsed-->     Working, cycles reset
@@ -36,7 +36,8 @@
  * otherwise the engine waits in Idle with phase() set to the upcoming phase. An auto-started
  * transition goes straight from one running state to the next (no Idle in between), and
  * phaseFinished() is emitted after the transition, so listeners see the real new state.
- * A break with a zero duration is skipped: the upcoming phase is Work right away. Skipping a
+ * A long break with a zero duration still ends the set, with a short break in its place. A
+ * break with a zero duration is skipped: the upcoming phase is Work right away. Skipping a
  * work phase counts as a cycle just like finishing it, so skipping through a set reaches the
  * long break.
  */
@@ -188,10 +189,12 @@ private:
     void completePhase(qint64 nowMs);
     void emitSessionEnded(bool completed, const QDateTime &endedAt);
     /// Advances the cycle count when a Work phase ends (finished or skipped) and returns what follows.
-    /// A break with a zero duration is passed over (Work follows; a skipped long break ends the set).
+    /// A zero long break becomes a short break (still ending the set); a zero break is passed over.
     Phase nextPhaseAfter(Phase finished);
 
     void setState(State state);
+    /// Completes a running phase whose time is already up (before the ticker noticed); true if it did.
+    bool finishIfDue();
     void setPhase(Phase phase);
     void setCycles(int cycles);
     void notifyTime(bool force);

@@ -200,17 +200,27 @@ bool Database::open()
     if (!inMemory) {
         // Decide ownership before any write or pragma that would modify a foreign file.
         // The handle must go out of scope before the connection is removed below.
-        bool ours = false;
-        bool corrupt = false;
+        Ownership verdict = Ownership::Unknown;
         {
             QSqlDatabase db = QSqlDatabase::database(m_connectionName, false);
-            ours = belongsToUs(db, &corrupt);
+            verdict = ownership(db);
         }
-        if (corrupt) {
+        switch (verdict) {
+        case Ownership::Ours:
+            break;
+        case Ownership::Corrupt:
             if (!moveFileAside(QStringLiteral("corrupt")) || !connect()) {
                 return false;
             }
-        } else if (!ours && (!moveFileAside(QStringLiteral("foreign")) || !connect())) {
+            break;
+        case Ownership::Foreign:
+            if (!moveFileAside(QStringLiteral("foreign")) || !connect()) {
+                return false;
+            }
+            break;
+        case Ownership::Unknown:
+            // m_error says why; the caller falls back to a temporary database for this run.
+            closeConnection();
             return false;
         }
     }
@@ -226,51 +236,56 @@ bool Database::open()
     return migrate(db);
 }
 
-bool Database::belongsToUs(QSqlDatabase &db, bool *corrupt) const
+Database::Ownership Database::ownership(QSqlDatabase &db)
 {
-    *corrupt = false;
+    // Unreadable schema or check: damaged or not a database. Other errors (busy, locked...) say
+    // nothing about whose file it is.
+    const auto failed = [this](const QSqlError &error) {
+        m_error = error.text();
+        return isCorruptionError(error.nativeErrorCode()) ? Ownership::Corrupt : Ownership::Unknown;
+    };
+
     QStringList tables;
     {
         QSqlQuery query(db);
         if (!query.exec(QStringLiteral("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"))) {
-            // Unreadable schema: damaged or not a database. Other errors (busy...) are not ours to judge.
-            *corrupt = isCorruptionError(query.lastError().nativeErrorCode());
-            return false;
+            return failed(query.lastError());
         }
         while (query.next()) {
             tables.append(query.value(0).toString());
         }
     }
 
-    if (!tables.isEmpty()) {
-        // A readable schema can still sit on top of damaged pages. The files are small, so the
-        // quick check costs a few milliseconds.
-        QSqlQuery check(db);
-        if (!check.exec(QStringLiteral("PRAGMA quick_check(1)"))) {
-            *corrupt = isCorruptionError(check.lastError().nativeErrorCode());
-            return false;
-        }
-        if (!check.next() || check.value(0).toString() != QLatin1String("ok")) {
-            *corrupt = true;
-            return false;
-        }
-    }
-
     if (tables.isEmpty()) {
-        return true; // new or empty file: ours to initialise
+        return Ownership::Ours; // new or empty file: ours to initialise
     }
 
-    const int applicationId = pragmaInt(db, QStringLiteral("application_id"));
+    // A readable schema can still sit on top of damaged pages. The files are small, so the
+    // quick check costs a few milliseconds.
+    QSqlQuery check(db);
+    if (!check.exec(QStringLiteral("PRAGMA quick_check(1)"))) {
+        return failed(check.lastError());
+    }
+    if (!check.next() || check.value(0).toString() != QLatin1String("ok")) {
+        return Ownership::Corrupt;
+    }
+
+    QSqlQuery idQuery(db);
+    if (!idQuery.exec(QStringLiteral("PRAGMA application_id")) || !idQuery.next()) {
+        return failed(idQuery.lastError());
+    }
+    const int applicationId = idQuery.value(0).toInt();
     if (applicationId == kApplicationId) {
-        return true;
+        return Ownership::Ours;
     }
     if (applicationId == 0) {
         // Written by kTomato before the id existed? Accept only if it has all our tables.
-        return std::all_of(ownTables().cbegin(), ownTables().cend(), [&](const QString &t) {
+        const bool allTables = std::all_of(ownTables().cbegin(), ownTables().cend(), [&](const QString &t) {
             return tables.contains(t);
         });
+        return allTables ? Ownership::Ours : Ownership::Foreign;
     }
-    return false;
+    return Ownership::Foreign;
 }
 
 bool Database::moveFileAside(const QString &reason)

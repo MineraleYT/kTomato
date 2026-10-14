@@ -8,6 +8,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRegularExpression>
 
 #include <algorithm>
 
@@ -16,7 +17,7 @@ namespace
 const QString kReleasesPage = QStringLiteral("https://github.com/MineraleYT/kTomato/releases");
 
 struct ParsedVersion {
-    QList<int> numbers;
+    QStringList numbers; ///< Digit strings, compared by value with compareDigits().
     QStringList preRelease; ///< Empty for a release.
 };
 
@@ -38,10 +39,9 @@ ParsedVersion parseVersion(const QString &raw)
     }
     const auto parts = cleaned.split(QLatin1Char('.'));
     version.numbers.reserve(parts.size());
+    static const QRegularExpression digitsOnly(QStringLiteral("^[0-9]+$"));
     for (const QString &p : parts) {
-        bool ok = false;
-        const int n = p.toInt(&ok);
-        version.numbers.append(ok ? n : 0);
+        version.numbers.append(digitsOnly.match(p).hasMatch() ? p : QStringLiteral("0"));
     }
     return version;
 }
@@ -51,25 +51,43 @@ int sign(qint64 n)
     return n > 0 ? 1 : (n < 0 ? -1 : 0);
 }
 
+/// Compares two runs of ASCII digits by value, however long they are.
+int compareDigits(QStringView a, QStringView b)
+{
+    while (a.size() > 1 && a.front() == QLatin1Char('0')) {
+        a = a.mid(1);
+    }
+    while (b.size() > 1 && b.front() == QLatin1Char('0')) {
+        b = b.mid(1);
+    }
+    if (a.size() != b.size()) {
+        return a.size() > b.size() ? 1 : -1;
+    }
+    const int c = a.compare(b);
+    return c > 0 ? 1 : (c < 0 ? -1 : 0);
+}
+
 /// Compares runs of digits by value and everything else as text: "rc2" < "rc10".
 int naturalCompare(const QString &a, const QString &b)
 {
     int i = 0;
     int j = 0;
     while (i < a.size() && j < b.size()) {
-        if (a.at(i).isDigit() && b.at(j).isDigit()) {
+        const auto ascii = [](QChar c) {
+            return c >= QLatin1Char('0') && c <= QLatin1Char('9');
+        };
+        if (ascii(a.at(i)) && ascii(b.at(j))) {
             int ei = i;
             int ej = j;
-            while (ei < a.size() && a.at(ei).isDigit()) {
+            while (ei < a.size() && ascii(a.at(ei))) {
                 ++ei;
             }
-            while (ej < b.size() && b.at(ej).isDigit()) {
+            while (ej < b.size() && ascii(b.at(ej))) {
                 ++ej;
             }
-            const qint64 na = a.mid(i, ei - i).left(18).toLongLong();
-            const qint64 nb = b.mid(j, ej - j).left(18).toLongLong();
-            if (na != nb) {
-                return sign(na - nb);
+            const int c = compareDigits(QStringView(a).mid(i, ei - i), QStringView(b).mid(j, ej - j));
+            if (c != 0) {
+                return c;
             }
             i = ei;
             j = ej;
@@ -142,11 +160,11 @@ int UpdateChecker::compareVersions(const QString &v1, const QString &v2)
     const ParsedVersion p1 = parseVersion(v1);
     const ParsedVersion p2 = parseVersion(v2);
     const int maxLen = std::max(p1.numbers.size(), p2.numbers.size());
+    const QString zero = QStringLiteral("0");
     for (int i = 0; i < maxLen; ++i) {
-        const int n1 = i < p1.numbers.size() ? p1.numbers.at(i) : 0;
-        const int n2 = i < p2.numbers.size() ? p2.numbers.at(i) : 0;
-        if (n1 != n2) {
-            return n1 > n2 ? 1 : -1;
+        const int c = compareDigits(i < p1.numbers.size() ? p1.numbers.at(i) : zero, i < p2.numbers.size() ? p2.numbers.at(i) : zero);
+        if (c != 0) {
+            return c;
         }
     }
 
@@ -163,6 +181,12 @@ int UpdateChecker::compareVersions(const QString &v1, const QString &v2)
     }
     // "rc.1" < "rc.1.1": more identifiers sort later.
     return sign(qint64(p1.preRelease.size()) - qint64(p2.preRelease.size()));
+}
+
+bool UpdateChecker::isPlausibleVersionTag(const QString &tag)
+{
+    static const QRegularExpression pattern(QStringLiteral("^v?[0-9]+(\\.[0-9]+)*(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"));
+    return tag.size() <= 64 && pattern.match(tag).hasMatch();
 }
 
 void UpdateChecker::checkForUpdates()
@@ -213,7 +237,7 @@ void UpdateChecker::checkForUpdates()
         const QString tagName = obj.value(QStringLiteral("tag_name")).toString();
         const QString htmlUrl = obj.value(QStringLiteral("html_url")).toString();
 
-        if (tagName.isEmpty()) {
+        if (!isPlausibleVersionTag(tagName)) {
             m_errorMessage = i18n("No version information found in release.");
             setStatus(Status::Error);
             return;

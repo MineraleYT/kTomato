@@ -87,7 +87,7 @@ void FocusSoundController::preview(int mode, int volume)
     }
     m_previewing = true;
     m_previewMode = mode;
-    m_volume = std::clamp(volume, 0, 100);
+    m_previewVolume = std::clamp(volume, 0, 100);
     // generateChunk() follows the mode live, so a running player just changes sound.
     if (!m_process) {
         startPlayback();
@@ -101,9 +101,6 @@ void FocusSoundController::stopPreview()
         m_previewTimer.stop();
         m_previewing = false;
         m_previewMode = 0;
-        if (m_settings) {
-            m_volume = m_settings->focusSoundVolume();
-        }
         // Stops the player unless a work phase wants it to go on.
         const bool shouldPlay = m_engine && m_engine->state() == TimerEngine::State::Working && m_mode > 0;
         if (!shouldPlay) {
@@ -254,7 +251,7 @@ QByteArray FocusSoundController::generateChunk(int numSamples)
     data.resize(numSamples * sizeof(qint16));
     auto *samples = reinterpret_cast<qint16 *>(data.data());
 
-    const float volFactor = (m_volume / 100.0f);
+    const float volFactor = (playbackVolume() / 100.0f);
     const int currentMode = m_previewing ? m_previewMode : m_mode;
 
     for (int i = 0; i < numSamples; ++i, ++m_sampleIndex) {

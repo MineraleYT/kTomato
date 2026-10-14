@@ -3,6 +3,9 @@
 #include <QDBusConnectionInterface>
 #include <QLoggingCategory>
 #include <QSignalSpy>
+#include <QPointer>
+#include <QDBusMessage>
+#include <QDBusPendingCallWatcher>
 #include <QTest>
 
 #include <memory>
@@ -128,7 +131,36 @@ private Q_SLOTS:
         QVERIFY(next.acquire());
     }
 
-    void withoutASessionBusThereIsNothingToCoordinateWith()
+    void onlyActivateIsReachableOverDBus()
+    {
+        // ExportAllSlots exports the class' own slots only: QObject's deleteLater() (which would
+        // end the instance and free the name for a second copy) is not one of them.
+        SingleInstance primary(first(), kService);
+        QVERIFY(primary.acquire());
+        QPointer<SingleInstance> alive(&primary);
+        const QString path = QStringLiteral("/org/example/ktomato/test");
+        // Asynchronous calls: the object answering lives in this same thread.
+        const auto call = [&](const QString &interface, const QString &method) {
+            QDBusPendingCall pending = second().asyncCall(QDBusMessage::createMethodCall(kService, path, interface, method));
+            QDBusPendingCallWatcher watcher(pending);
+            QSignalSpy done(&watcher, &QDBusPendingCallWatcher::finished);
+            done.wait(5000);
+            return pending.reply();
+        };
+        for (const QString &method : {QStringLiteral("deleteLater"), QStringLiteral("destroyed")}) {
+            QCOMPARE(call(QString(), method).type(), QDBusMessage::ErrorMessage);
+        }
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(alive);
+        QVERIFY(first().interface()->isServiceRegistered(kService));
+
+        // The introspection lists Activate and nothing of QObject.
+        const QString xml = call(QStringLiteral("org.freedesktop.DBus.Introspectable"), QStringLiteral("Introspect")).arguments().value(0).toString();
+        QVERIFY2(xml.contains(QStringLiteral("Activate")), qPrintable(xml));
+        QVERIFY(!xml.contains(QStringLiteral("deleteLater")));
+    }
+
+        void withoutASessionBusThereIsNothingToCoordinateWith()
     {
         SingleInstance alone(QDBusConnection(QStringLiteral("no-such-connection")), kService);
         QVERIFY(alone.acquire());

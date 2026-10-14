@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QSignalSpy>
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QTest>
@@ -137,7 +138,37 @@ private Q_SLOTS:
         QCOMPARE(repo->loadAll().at(1).options, p.options);
     }
 
-    void builtinPresetIsNeverDeleted()
+    void unreadableOptionsSurviveASave()
+    {
+        TimerPreset p = makePreset(QStringLiteral("a"), QStringLiteral("A"));
+        p.options = {{PresetOption::AutoStart, true}};
+        QVERIFY(repo->saveAll({builtinDefault(), p}));
+
+        // A value this version cannot read (damaged, or written by a newer version).
+        QSqlQuery query(QSqlDatabase::database(db->connectionName()));
+        QVERIFY(query.exec(QStringLiteral("INSERT INTO preset_option (preset_id, key, value) "
+                                          "SELECT id, 'futureOption', '{not json' FROM preset WHERE uuid = 'a'")));
+        const QList<TimerPreset> loaded = repo->loadAll();
+        QCOMPARE(loaded.at(1).options, p.options); // skipped when loading
+
+        // Saving the loaded timers keeps it; a readable option the model dropped still goes.
+        TimerPreset edited = loaded.at(1);
+        edited.options.remove(PresetOption::AutoStart);
+        QVERIFY(repo->saveAll({builtinDefault(), edited}));
+        QVERIFY(query.exec(QStringLiteral("SELECT key, value FROM preset_option o JOIN preset p ON p.id = o.preset_id "
+                                          "WHERE p.uuid = 'a' ORDER BY key")));
+        QVERIFY(query.next());
+        QCOMPARE(query.value(0).toString(), QStringLiteral("futureOption"));
+        QCOMPARE(query.value(1).toString(), QStringLiteral("{not json"));
+        QVERIFY(!query.next());
+
+        // Setting that key again replaces it.
+        edited.options.insert(QStringLiteral("futureOption"), 3);
+        QVERIFY(repo->saveAll({builtinDefault(), edited}));
+        QCOMPARE(repo->loadAll().at(1).options.value(QStringLiteral("futureOption")).toInt(), 3);
+    }
+
+        void builtinPresetIsNeverDeleted()
     {
         QVERIFY(repo->saveAll({builtinDefault(), makePreset(QStringLiteral("a"), QStringLiteral("A"))}));
         QVERIFY(repo->saveAll({makePreset(QStringLiteral("a"), QStringLiteral("A"))})); // default missing from list
@@ -209,6 +240,27 @@ private Q_SLOTS:
         // The duplicate keeps its position right after its source.
         QCOMPARE(reloaded.indexOf(studyUuid), 1);
         QVERIFY(reloaded.data(reloaded.index(2), PresetModel::NameRole).toString().contains(QStringLiteral("Study")));
+    }
+
+    void refusedSavesAreReportedAndRetried()
+    {
+        PresetModel model;
+        PresetPersistence persistence(&model, repo.get());
+        persistence.setRetryIntervalForTesting(30);
+        QSignalSpy failing(&persistence, &PresetPersistence::saveFailingChanged);
+
+        QSqlQuery query(QSqlDatabase::database(db->connectionName()));
+        QVERIFY(query.exec(QStringLiteral("CREATE TEMP TRIGGER refuse BEFORE INSERT ON preset "
+                                          "BEGIN SELECT RAISE(ABORT, 'disk full'); END")));
+        const QString uuid = model.create({{QStringLiteral("name"), QStringLiteral("Study")}});
+        QVERIFY(persistence.isSaveFailing());
+        QCOMPARE(failing.count(), 1);
+        QVERIFY(!uuids(repo->loadAll()).contains(uuid));
+
+        QVERIFY(query.exec(QStringLiteral("DROP TRIGGER refuse")));
+        QTRY_VERIFY(!persistence.isSaveFailing());
+        QCOMPARE(failing.count(), 2);
+        QVERIFY(uuids(repo->loadAll()).contains(uuid));
     }
 
     void deletedPresetsStayDeletedAndSelectionFallsBack()

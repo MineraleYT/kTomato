@@ -69,7 +69,51 @@ private Q_SLOTS:
         QVERIFY(!p.value(QStringLiteral("builtin")).toBool());
     }
 
-    void createWithBlankNameGetsFallbackName()
+    void adjustedValuesAreReportedNotJustClamped()
+    {
+        QSignalSpy adjusted(model.get(), &PresetModel::valuesAdjusted);
+
+        // Valid input: nothing to report.
+        const QString uuid = model->create({{QStringLiteral("name"), QStringLiteral("Fine")},
+                                            {QStringLiteral("workSeconds"), 50 * 60},
+                                            {QStringLiteral("cyclesBeforeLong"), 4}});
+        QCOMPARE(adjusted.count(), 0);
+
+        // Out of range, unreadable and too long: each field is named.
+        QVERIFY(model->update(uuid, {{QStringLiteral("workSeconds"), 100 * 3600},
+                                     {QStringLiteral("shortBreakSeconds"), -10},
+                                     {QStringLiteral("cyclesBeforeLong"), QStringLiteral("lots")},
+                                     {QStringLiteral("name"), QString(300, QLatin1Char('n'))},
+                                     {QStringLiteral("longBreakSeconds"), 10 * 60}}));
+        QCOMPARE(adjusted.count(), 1);
+        QCOMPARE(adjusted.first().at(0).toString(), uuid);
+        QStringList fields = adjusted.first().at(1).toStringList();
+        fields.sort();
+        QCOMPARE(fields, (QStringList{QStringLiteral("cyclesBeforeLong"), QStringLiteral("name"),
+                                      QStringLiteral("shortBreakSeconds"), QStringLiteral("workSeconds")}));
+        // The values that were kept are the clamped ones (and the unreadable one is unchanged).
+        const QVariantMap p = model->get(uuid);
+        QCOMPARE(p.value(QStringLiteral("workSeconds")).toInt(), PresetLimits::MaxWorkSeconds);
+        QCOMPARE(p.value(QStringLiteral("shortBreakSeconds")).toInt(), 0);
+        QCOMPARE(p.value(QStringLiteral("cyclesBeforeLong")).toInt(), 4);
+        QCOMPARE(p.value(QStringLiteral("longBreakSeconds")).toInt(), 10 * 60);
+    }
+
+        void namesAreLimitedLikeTheEditorFields()
+    {
+        // The editor stops typing at maxNameLength; other callers (QML, stored data) are cut there.
+        const QString longName(500, QLatin1Char('n'));
+        const QString uuid = model->create({{QStringLiteral("name"), longName}, {QStringLiteral("category"), longName}});
+        const QVariantMap p = model->get(uuid);
+        QCOMPARE(p.value(QStringLiteral("name")).toString().size(), PresetModel::maxNameLength());
+        QCOMPARE(p.value(QStringLiteral("category")).toString().size(), PresetModel::maxNameLength());
+        // The editor's limits are the model's.
+        QCOMPARE(PresetModel::maxWorkMinutes() * 60, PresetLimits::MaxWorkSeconds);
+        QCOMPARE(PresetModel::maxBreakMinutes() * 60, PresetLimits::MaxBreakSeconds);
+        QCOMPARE(PresetModel::maxCycles(), PresetLimits::MaxCycles);
+    }
+
+        void createWithBlankNameGetsFallbackName()
     {
         const QString uuid = model->create({{QStringLiteral("name"), QStringLiteral("   ")}});
         QVERIFY(!model->get(uuid).value(QStringLiteral("name")).toString().isEmpty());

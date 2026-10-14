@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "CalendarSync.h"
 
+#include "SecretStore.h"
+
 #include <KConfigGroup>
 #include <KLocalizedString>
 
 #include <QCoreApplication>
+#include <QDBusConnection>
 #include <QDesktopServices>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
@@ -29,6 +33,9 @@ const char kPassword[] = "AppPassword";
 const char kCalendarUrl[] = "CalendarUrl";
 const char kCalendarName[] = "CalendarName";
 const char kIncludeNote[] = "IncludeNote";
+const char kQueueGroup[] = "CalendarQueue";
+const char kQueuePending[] = "Pending";
+const char kQueueLeftoverTests[] = "LeftoverTests";
 
 /// Settings that belong to one provider; they live in the subgroup named after it.
 bool isProviderKey(const char *key)
@@ -332,13 +339,21 @@ QList<CalendarSync::CalendarInfo> CalendarSync::parseCalendars(const QByteArray 
 // ---------------------------------------------------------------------------------------------
 
 CalendarSync::CalendarSync(QObject *parent)
-    : CalendarSync(KSharedConfig::openConfig(QStringLiteral("ktomatorc")), parent)
+    : CalendarSync(KSharedConfig::openConfig(QStringLiteral("ktomatorc")),
+                   std::make_unique<SecretServiceStore>(QDBusConnection::sessionBus(), QStringLiteral("io.github.mineraleyt.ktomato")),
+                   parent)
 {
 }
 
 CalendarSync::CalendarSync(KSharedConfig::Ptr config, QObject *parent)
+    : CalendarSync(std::move(config), nullptr, parent)
+{
+}
+
+CalendarSync::CalendarSync(KSharedConfig::Ptr config, std::unique_ptr<SecretStore> secrets, QObject *parent)
     : QObject(parent)
     , m_config(std::move(config))
+    , m_secrets(std::move(secrets))
     , m_retryDelays({30 * 1000, 2 * 60 * 1000, 10 * 60 * 1000})
 {
     m_retryTimer.setSingleShot(true);
@@ -347,6 +362,10 @@ CalendarSync::CalendarSync(KSharedConfig::Ptr config, QObject *parent)
     m_openUrl = [](const QUrl &url) { return QDesktopServices::openUrl(url); };
     load();
     refreshIdleStatus();
+    // Events left waiting by the last run go out once the program is up.
+    if (!m_queue.isEmpty()) {
+        QTimer::singleShot(0, this, &CalendarSync::trySend);
+    }
 }
 
 CalendarSync::~CalendarSync() = default;
@@ -362,6 +381,7 @@ void CalendarSync::load()
     }
     m_includeNote = group.readEntry(kIncludeNote, false);
     loadProviderFields();
+    loadQueue();
 }
 
 void CalendarSync::loadProviderFields()
@@ -371,6 +391,20 @@ void CalendarSync::loadProviderFields()
     m_serverUrl = normalizeUrl(group.readEntry(kServerUrl, QString()), nullptr);
     m_username = group.readEntry(kUsername, QString()).trimmed();
     m_password = group.readEntry(kPassword, QString());
+    m_passwordInKeyring = false;
+    // No account, no reason to wake the keyring up.
+    if (m_secrets && !m_username.isEmpty()) {
+        if (!m_password.isEmpty()) {
+            // Kept in the file by an older version, or while no keyring answered: move it.
+            if (m_secrets->write(secretKey(), m_password)) {
+                m_passwordInKeyring = true;
+                save(kPassword, QString());
+            }
+        } else if (const auto secret = m_secrets->read(secretKey())) {
+            m_password = *secret;
+            m_passwordInKeyring = !m_password.isEmpty();
+        }
+    }
     m_calendarUrl = normalizeUrl(group.readEntry(kCalendarUrl, QString()), nullptr);
     m_calendarName = group.readEntry(kCalendarName, QString());
 }
@@ -419,6 +453,105 @@ void CalendarSync::save(const char *key, const QVariant &value)
         group.writeEntry(key, value, KConfig::Normal);
     }
     m_config->sync();
+}
+
+QString CalendarSync::secretKey() const
+{
+    return QStringLiteral("calendar-") + m_provider;
+}
+
+void CalendarSync::storePassword(const QString &password)
+{
+    m_password = password;
+    if (m_secrets && m_secrets->write(secretKey(), password)) {
+        m_passwordInKeyring = !password.isEmpty();
+        save(kPassword, QString());
+        return;
+    }
+    // No keyring: the user's private ktomatorc it is.
+    m_passwordInKeyring = false;
+    save(kPassword, password);
+}
+
+QString CalendarSync::currentAccount() const
+{
+    const QUrl server = QUrl(m_calendarUrl).adjusted(QUrl::RemovePath | QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::RemoveUserInfo);
+    return m_provider + QLatin1Char('\n') + m_username + QLatin1Char('\n') + server.toString();
+}
+
+void CalendarSync::loadQueue()
+{
+    const KConfigGroup group = m_config->group(QString::fromLatin1(kQueueGroup));
+    const QJsonArray pending = QJsonDocument::fromJson(group.readEntry(kQueuePending, QByteArray())).array();
+    for (const QJsonValue &value : pending) {
+        const QJsonObject o = value.toObject();
+        Pending item;
+        item.uid = o.value(QLatin1String("uid")).toString();
+        item.account = o.value(QLatin1String("account")).toString();
+        SessionRecord &r = item.record;
+        r.id = o.value(QLatin1String("id")).toInteger();
+        r.kind = SessionKind::Work;
+        r.startedAtMs = o.value(QLatin1String("startedAtMs")).toInteger();
+        r.endedAtMs = o.value(QLatin1String("endedAtMs")).toInteger();
+        r.durationSec = o.value(QLatin1String("durationSec")).toInt();
+        r.plannedSec = o.value(QLatin1String("plannedSec")).toInt();
+        r.completed = true;
+        r.presetUuid = o.value(QLatin1String("presetUuid")).toString();
+        r.presetName = o.value(QLatin1String("presetName")).toString();
+        r.category = o.value(QLatin1String("category")).toString();
+        r.note = o.value(QLatin1String("note")).toString();
+        if (!item.uid.isEmpty() && !item.account.isEmpty() && m_queue.size() < kMaxQueue) {
+            m_queue.append(item);
+        }
+    }
+    const QJsonArray leftovers = QJsonDocument::fromJson(group.readEntry(kQueueLeftoverTests, QByteArray())).array();
+    for (const QJsonValue &value : leftovers) {
+        const QJsonObject o = value.toObject();
+        m_leftoverTests.append({o.value(QLatin1String("uid")).toString(), o.value(QLatin1String("account")).toString()});
+    }
+}
+
+void CalendarSync::saveQueue()
+{
+    QJsonArray pending;
+    for (const Pending &item : std::as_const(m_queue)) {
+        const SessionRecord &r = item.record;
+        pending.append(QJsonObject{
+            {QStringLiteral("uid"), item.uid},
+            {QStringLiteral("account"), item.account},
+            {QStringLiteral("id"), r.id},
+            {QStringLiteral("startedAtMs"), r.startedAtMs},
+            {QStringLiteral("endedAtMs"), r.endedAtMs},
+            {QStringLiteral("durationSec"), r.durationSec},
+            {QStringLiteral("plannedSec"), r.plannedSec},
+            {QStringLiteral("presetUuid"), r.presetUuid},
+            {QStringLiteral("presetName"), r.presetName},
+            {QStringLiteral("category"), r.category},
+            {QStringLiteral("note"), r.note},
+        });
+    }
+    QJsonArray leftovers;
+    for (const auto &leftover : std::as_const(m_leftoverTests)) {
+        leftovers.append(QJsonObject{{QStringLiteral("uid"), leftover.first}, {QStringLiteral("account"), leftover.second}});
+    }
+    KConfigGroup group = m_config->group(QString::fromLatin1(kQueueGroup));
+    if (pending.isEmpty()) {
+        group.deleteEntry(kQueuePending);
+    } else {
+        group.writeEntry(kQueuePending, QJsonDocument(pending).toJson(QJsonDocument::Compact), KConfig::Normal);
+    }
+    if (leftovers.isEmpty()) {
+        group.deleteEntry(kQueueLeftoverTests);
+    } else {
+        group.writeEntry(kQueueLeftoverTests, QJsonDocument(leftovers).toJson(QJsonDocument::Compact), KConfig::Normal);
+    }
+    m_config->sync();
+}
+
+void CalendarSync::queueChanged()
+{
+    saveQueue();
+    Q_EMIT pendingCountChanged();
 }
 
 bool CalendarSync::configured() const
@@ -489,6 +622,7 @@ void CalendarSync::switchProvider(const QString &provider)
     const QString oldCalendarUrl = m_calendarUrl;
     const QString oldCalendarName = calendarName();
     m_calendars.clear();
+    m_calendarsFresh = QDeadlineTimer();
     loadProviderFields();
 
     Q_EMIT providerChanged();
@@ -524,6 +658,7 @@ void CalendarSync::setServerUrl(const QString &url)
     }
     m_serverUrl = normalized;
     m_calendars.clear();
+    m_calendarsFresh = QDeadlineTimer();
     save(kServerUrl, normalized);
     Q_EMIT serverUrlChanged();
     Q_EMIT calendarsChanged();
@@ -546,8 +681,7 @@ void CalendarSync::setPassword(const QString &password)
 {
     const QString pw = password.trimmed();
     const bool had = hasPassword();
-    m_password = pw;
-    save(kPassword, pw);
+    storePassword(pw);
     if (had != hasPassword()) {
         Q_EMIT hasPasswordChanged();
     }
@@ -558,7 +692,7 @@ void CalendarSync::setCalendarUrl(const QString &url)
 {
     QString error;
     const QString normalized = normalizeUrl(url, &error);
-    if (!error.isEmpty()) {
+    if (!error.isEmpty() || !calendarOnServer(normalized, &error)) {
         setLastError(error);
         return;
     }
@@ -592,6 +726,10 @@ void CalendarSync::selectCalendar(const QString &url, const QString &name)
         setLastError(error.isEmpty() ? i18n("Choose a calendar first.") : error);
         return;
     }
+    if (!calendarOnServer(normalized, &error)) {
+        setLastError(error);
+        return;
+    }
     const bool urlChanged = normalized != m_calendarUrl;
     m_calendarUrl = normalized;
     m_calendarName = name.trimmed();
@@ -609,20 +747,22 @@ void CalendarSync::disconnect()
     abortAll();
     clearQueue();
     m_sent.clear();
+    m_leftoverTests.clear();
+    saveQueue();
     m_retryTimer.stop();
     m_retryStep = 0;
     m_paused = false;
     m_sendFailing = false;
 
     const bool hadPassword = hasPassword();
-    m_password.clear();
+    storePassword(QString());
     m_username.clear();
     m_calendarUrl.clear();
     m_calendarName.clear();
     m_calendars.clear();
+    m_calendarsFresh = QDeadlineTimer();
     const bool wasEnabled = m_enabled;
     m_enabled = false;
-    save(kPassword, QString());
     save(kUsername, QString());
     save(kCalendarUrl, QString());
     save(kCalendarName, QString());
@@ -648,8 +788,52 @@ void CalendarSync::credentialsChanged()
     m_sendFailing = false;
     m_retryTimer.stop();
     m_retryStep = 0;
+    dropOtherAccounts();
     refreshIdleStatus();
     trySend();
+}
+
+void CalendarSync::dropOtherAccounts()
+{
+    // Once this provider is set up for another account, what the previous one left waiting
+    // can never be delivered: it must not go to the new account either.
+    if (!configured()) {
+        return;
+    }
+    const QString account = currentAccount();
+    const QString prefix = m_provider + QLatin1Char('\n');
+
+    // Events from before this account was complete: adopted if nothing says they belong to
+    // someone else (no user name given then, or this one), dropped otherwise.
+    const QString unboundPrefix = QStringLiteral("unbound\n");
+    bool adopted = false;
+    for (Pending &item : m_queue) {
+        if (item.account.startsWith(unboundPrefix)) {
+            const QString user = item.account.mid(unboundPrefix.size());
+            if (user.isEmpty() || user == m_username) {
+                item.account = account;
+                adopted = true;
+            }
+        }
+    }
+    const auto stale = [&](const Pending &item) {
+        return (item.account.startsWith(prefix) || item.account.startsWith(unboundPrefix)) && item.account != account;
+    };
+    const auto removed = m_queue.removeIf(stale);
+    m_sent.removeIf(stale);
+    m_leftoverTests.removeIf([&](const QPair<QString, QString> &leftover) {
+        return leftover.second.startsWith(prefix) && leftover.second != account;
+    });
+    if (removed > 0 || adopted) {
+        queueChanged();
+    } else {
+        saveQueue();
+    }
+}
+
+QString CalendarSync::unboundAccount() const
+{
+    return QStringLiteral("unbound\n") + m_username;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -745,7 +929,8 @@ void CalendarSync::request(const QByteArray &verb, const QUrl &url, const QByteA
                            std::function<void(const Result &)> done)
 {
     QString error;
-    if (!isUrlAllowed(url, &error)) {
+    // The password only ever goes to the server it belongs to.
+    if (!isUrlAllowed(url, &error) || (withAuth && !calendarOnServer(url.toString(), &error))) {
         Result r;
         r.networkError = error;
         const quint64 gen = m_generation;
@@ -801,6 +986,7 @@ void CalendarSync::abortAll()
     }
     m_busy = 0;
     m_inFlight = false;
+    m_inFlightUid.clear();
     m_loginStarting = false;
     endLogin();
 }
@@ -833,42 +1019,88 @@ void CalendarSync::clearQueue()
         return;
     }
     m_queue.clear();
-    Q_EMIT pendingCountChanged();
+    queueChanged();
+}
+
+bool CalendarSync::sameEvent(const SessionRecord &a, const SessionRecord &b) const
+{
+    return a.startedAtMs == b.startedAtMs && a.endedAtMs == b.endedAtMs && a.presetName == b.presetName
+        && a.category == b.category && (!m_includeNote || a.note == b.note);
+}
+
+bool CalendarSync::calendarOnServer(const QString &calendarUrl, QString *error) const
+{
+    if (m_provider != kNextcloud || m_serverUrl.isEmpty() || calendarUrl.isEmpty()) {
+        return true;
+    }
+    const QUrl calendar(calendarUrl);
+    const QUrl server(m_serverUrl);
+    const int defaultPort = server.scheme() == QLatin1String("https") ? 443 : 80;
+    if (calendar.scheme() == server.scheme() && calendar.host().compare(server.host(), Qt::CaseInsensitive) == 0
+        && calendar.port(defaultPort) == server.port(defaultPort)) {
+        return true;
+    }
+    if (error) {
+        *error = i18n("The calendar must be on the Nextcloud server you signed in to.");
+    }
+    return false;
+}
+
+int CalendarSync::inFlightIndex() const
+{
+    if (!m_inFlight) {
+        return -1;
+    }
+    for (int i = 0; i < m_queue.size(); ++i) {
+        if (m_queue.at(i).uid == m_inFlightUid) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void CalendarSync::appendBounded(const Pending &item)
+{
+    if (m_queue.size() >= kMaxQueue) {
+        // Never drop the one being sent right now.
+        m_queue.removeAt(inFlightIndex() == 0 && m_queue.size() > 1 ? 1 : 0);
+        setLastError(i18n("Too many calendar events are waiting to be sent: the oldest one was dropped."));
+    }
+    m_queue.append(item);
+    queueChanged();
 }
 
 void CalendarSync::enqueueWorkSession(const SessionRecord &record)
 {
-    if (!m_enabled || !configured()) {
+    if (!m_enabled) {
         return;
     }
     if (record.kind != SessionKind::Work || !record.completed) {
         return;
     }
-    Pending item{record, uidFor(record)};
+    // Before an account is complete (signing in, a calendar not chosen yet) the event waits,
+    // bound to the user name only, if one is given; the account set up next adopts it.
+    Pending item{record, uidFor(record), configured() ? currentAccount() : unboundAccount()};
     for (Pending &queued : m_queue) {
         if (queued.uid == item.uid) {
             queued.record = record;
+            saveQueue();
             return;
         }
     }
-    if (m_queue.size() >= kMaxQueue) {
-        // Never drop the one being sent right now.
-        m_queue.removeAt(m_inFlight && m_queue.size() > 1 ? 1 : 0);
-        setLastError(i18n("Too many calendar events are waiting to be sent: the oldest one was dropped."));
-    }
-    m_queue.append(item);
-    Q_EMIT pendingCountChanged();
+    appendBounded(item);
     trySend();
 }
 
 void CalendarSync::onNoteChanged(qint64 sessionId, const QString &note)
 {
-    if (!m_includeNote || !m_enabled || !configured()) {
+    if (!m_includeNote || !m_enabled) {
         return;
     }
     for (Pending &queued : m_queue) {
         if (queued.record.id == sessionId) {
             queued.record.note = note;
+            saveQueue();
             return;
         }
     }
@@ -878,8 +1110,7 @@ void CalendarSync::onNoteChanged(qint64 sessionId, const QString &note)
                 return;
             }
             sent.record.note = note;
-            m_queue.append(sent);
-            Q_EMIT pendingCountChanged();
+            appendBounded(sent);
             trySend();
             return;
         }
@@ -894,11 +1125,19 @@ void CalendarSync::trySend()
     if (!isUrlAllowed(QUrl(m_calendarUrl))) {
         return;
     }
+    // Only what was queued for the account set up now; the rest waits for its own account.
+    const QString account = currentAccount();
+    const auto it = std::find_if(m_queue.cbegin(), m_queue.cend(), [&](const Pending &item) {
+        return item.account == account;
+    });
+    if (it == m_queue.cend()) {
+        return;
+    }
     m_inFlight = true;
-    const Pending &item = m_queue.first();
-    m_inFlightNote = item.record.note;
-    const QByteArray ics = buildIcs(item.record, m_includeNote, item.uid);
-    request("PUT", eventUrl(item.uid), ics, {{"Content-Type", "text/calendar; charset=utf-8"}}, true,
+    m_inFlightUid = it->uid;
+    m_inFlightRecord = it->record;
+    const QByteArray ics = buildIcs(it->record, m_includeNote, it->uid);
+    request("PUT", eventUrl(it->uid), ics, {{"Content-Type", "text/calendar; charset=utf-8"}}, true,
             [this](const Result &r) { onSendFinished(r); });
 }
 
@@ -925,26 +1164,31 @@ void CalendarSync::rememberSent(const Pending &item)
 
 void CalendarSync::onSendFinished(const Result &r)
 {
+    const int index = inFlightIndex();
     m_inFlight = false;
-    if (m_queue.isEmpty()) {
+    m_inFlightUid.clear();
+    if (index < 0) {
+        // Removed meanwhile (disabled, disconnected, another account): nothing to account for.
+        trySend();
         return;
     }
     if (isSuccess(r.http)) {
-        Pending sentItem = m_queue.first();
-        sentItem.record.note = m_inFlightNote;
+        Pending sentItem = m_queue.at(index);
+        sentItem.record = m_inFlightRecord;
         rememberSent(sentItem);
-        // A note edited while this request was on its way: send the item again.
-        const bool changedMeanwhile = m_includeNote && m_queue.first().record.note != m_inFlightNote;
+        // Changed while this request was on its way (a note, or the session itself): send it again.
+        const bool changedMeanwhile = !sameEvent(m_queue.at(index).record, m_inFlightRecord);
         if (!changedMeanwhile) {
-            m_queue.removeFirst();
+            m_queue.removeAt(index);
         }
         m_retryStep = 0;
         m_sendFailing = false;
         m_lastSuccess = QDateTime::currentDateTime();
         setLastError(QString());
         Q_EMIT lastSuccessChanged();
-        Q_EMIT pendingCountChanged();
+        queueChanged();
         refreshIdleStatus();
+        removeLeftoverTestEvents();
         trySend();
         return;
     }
@@ -958,9 +1202,9 @@ void CalendarSync::onSendFinished(const Result &r)
     }
     if (r.http >= 400 && r.http < 500 && r.http != 404 && r.http != 408 && r.http != 429) {
         // This event will never be accepted; do not let it hold back the others.
-        m_queue.removeFirst();
+        m_queue.removeAt(index);
         setLastError(i18n("The server refused an event (HTTP %1); it was skipped.", r.http));
-        Q_EMIT pendingCountChanged();
+        queueChanged();
         trySend();
         return;
     }
@@ -968,6 +1212,25 @@ void CalendarSync::onSendFinished(const Result &r)
     setLastError(message);
     refreshIdleStatus();
     scheduleRetry();
+}
+
+void CalendarSync::removeLeftoverTestEvents()
+{
+    const QString account = currentAccount();
+    for (const auto &leftover : std::as_const(m_leftoverTests)) {
+        if (leftover.second != account) {
+            continue;
+        }
+        const QString uid = leftover.first;
+        request("DELETE", eventUrl(uid), QByteArray(), {}, true, [this, uid](const Result &del) {
+            if (isSuccess(del.http) || del.http == 404) {
+                m_leftoverTests.removeIf([&](const QPair<QString, QString> &l) {
+                    return l.first == uid;
+                });
+                saveQueue();
+            }
+        });
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1010,7 +1273,7 @@ void CalendarSync::testConnection()
             fail(put);
             return;
         }
-        request("DELETE", eventUrl(uid), QByteArray(), {}, true, [this](const Result &del) {
+        request("DELETE", eventUrl(uid), QByteArray(), {}, true, [this, uid](const Result &del) {
             --m_busy;
             m_paused = false;
             m_sendFailing = false;
@@ -1019,7 +1282,11 @@ void CalendarSync::testConnection()
             if (isSuccess(del.http) || del.http == 404) {
                 setLastError(QString());
             } else {
-                setLastError(i18n("The connection works, but the test event could not be removed (%1).", describeFailure(del)));
+                // Tried again after the next event that goes through.
+                m_leftoverTests.append({uid, currentAccount()});
+                saveQueue();
+                setLastError(i18n("The connection works, but the test event could not be removed yet (%1). kTomato will try again later.",
+                                  describeFailure(del)));
             }
             setStatus(Ready, i18n("Connection test succeeded"));
             trySend();
@@ -1049,6 +1316,7 @@ void CalendarSync::discover(std::function<void(bool)> done)
                 --m_busy;
                 if (r.http == 207) {
                     m_calendars = parseCalendars(r.body, url);
+                    m_calendarsFresh = QDeadlineTimer(5 * 60 * 1000);
                     Q_EMIT calendarsChanged();
                     setLastError(QString());
                     m_paused = false;
@@ -1088,6 +1356,14 @@ void CalendarSync::refreshCalendars()
         }
         trySend();
     });
+}
+
+void CalendarSync::refreshCalendarsIfStale()
+{
+    if (!m_calendars.isEmpty() && !m_calendarsFresh.hasExpired()) {
+        return;
+    }
+    refreshCalendars();
 }
 
 void CalendarSync::autoSelectCalendar()
@@ -1166,7 +1442,10 @@ void CalendarSync::startNextcloudLogin()
                     failWith(error);
                     return;
                 }
-                if (endpoint.host().compare(serverUrl.host(), Qt::CaseInsensitive) != 0) {
+                // Both the page the user signs in on and the poll endpoint must be on the server
+                // that was entered: a misconfigured or hostile server cannot send them elsewhere.
+                if (endpoint.host().compare(serverUrl.host(), Qt::CaseInsensitive) != 0
+                    || login.host().compare(serverUrl.host(), Qt::CaseInsensitive) != 0) {
                     failWith(i18n("The server redirected the login to a different host; it was refused."));
                     return;
                 }
@@ -1275,9 +1554,8 @@ void CalendarSync::finishLogin(const QByteArray &json)
     }
     const bool hadPassword = hasPassword();
     m_username = loginName;
-    m_password = appPassword;
     save(kUsername, m_username);
-    save(kPassword, m_password);
+    storePassword(appPassword);
     Q_EMIT usernameChanged();
     if (!hadPassword) {
         Q_EMIT hasPasswordChanged();

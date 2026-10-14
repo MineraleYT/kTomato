@@ -313,6 +313,51 @@ private Q_SLOTS:
         QVERIFY(QFile::exists(db.movedAsidePath()));
     }
 
+    void lockedOwnDatabaseIsNeitherMovedNorReplaced()
+    {
+        // Another process holding the file (a backup tool, an sqlite3 shell) says nothing about
+        // whose file it is: opening must fail and leave the history where it is.
+        QTemporaryDir dir;
+        const QString path = dir.filePath(QStringLiteral("ktomato.db"));
+        {
+            Database db(path);
+            QVERIFY(db.open());
+        }
+
+        const QString lockName = QStringLiteral("locker");
+        {
+            QSqlDatabase locker = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), lockName);
+            locker.setDatabaseName(path);
+            locker.setConnectOptions(QStringLiteral("QSQLITE_BUSY_TIMEOUT=0"));
+            QVERIFY(locker.open());
+            QSqlQuery query(locker);
+            QVERIFY(query.exec(QStringLiteral("PRAGMA locking_mode = EXCLUSIVE")));
+            QVERIFY(query.exec(QStringLiteral("BEGIN EXCLUSIVE")));
+            QVERIFY(query.exec(QStringLiteral("SELECT count(*) FROM sqlite_master")));
+        }
+
+        {
+            Database db(path);
+            QVERIFY(!db.open());
+            QVERIFY(!db.lastError().isEmpty());
+            QVERIFY(db.movedAsidePath().isEmpty());
+        }
+        QVERIFY(movedAsideFiles(QDir(dir.path())).isEmpty());
+        QVERIFY(QFile::exists(path));
+
+        {
+            QSqlDatabase locker = QSqlDatabase::database(lockName, false);
+            QSqlQuery(locker).exec(QStringLiteral("ROLLBACK"));
+            locker.close();
+        }
+        QSqlDatabase::removeDatabase(lockName);
+
+        // Once the lock is gone the same file opens normally.
+        Database db(path);
+        QVERIFY2(db.open(), qPrintable(db.lastError()));
+        QVERIFY(db.movedAsidePath().isEmpty());
+    }
+
     void foreignDatabaseIsNotReportedAsCorrupt()
     {
         QTemporaryDir dir;

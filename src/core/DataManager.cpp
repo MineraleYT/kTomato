@@ -6,6 +6,7 @@
 #include "SessionRepository.h"
 #include "StatsModel.h"
 #include "PresetModel.h"
+#include "PresetPersistence.h"
 #include "PresetRepository.h"
 
 #include <KLocalizedString>
@@ -90,6 +91,26 @@ bool DataManager::usingTemporaryDatabase() const
     return !m_database || m_database->isTemporary();
 }
 
+bool DataManager::saveFailing() const
+{
+    return (m_recorder && m_recorder->isSaveFailing()) || (m_presetPersistence && m_presetPersistence->isSaveFailing());
+}
+
+void DataManager::setPresetPersistence(PresetPersistence *persistence)
+{
+    if (m_presetPersistence) {
+        disconnect(m_presetPersistence, nullptr, this, nullptr);
+    }
+    m_presetPersistence = persistence;
+    if (m_presetPersistence) {
+        connect(m_presetPersistence, &PresetPersistence::saveFailingChanged, this, &DataManager::saveFailingChanged);
+        connect(m_presetPersistence, &QObject::destroyed, this, [this]() {
+            m_presetPersistence = nullptr;
+        });
+    }
+    Q_EMIT saveFailingChanged();
+}
+
 void DataManager::setSessionRecorder(SessionRecorder *recorder)
 {
     if (m_recorder == recorder) {
@@ -102,6 +123,7 @@ void DataManager::setSessionRecorder(SessionRecorder *recorder)
     if (m_recorder) {
         // The StatsModel listens to the recorder itself; here only the counters need updating.
         connect(m_recorder, &SessionRecorder::sessionRecorded, this, &DataManager::dataChanged);
+        connect(m_recorder, &SessionRecorder::saveFailingChanged, this, &DataManager::saveFailingChanged);
         connect(m_recorder, &QObject::destroyed, this, [this]() {
             m_recorder = nullptr;
         });
@@ -143,6 +165,17 @@ bool DataManager::backupDatabase(const QUrl &fileUrl)
     if (!query.exec(QStringLiteral("PRAGMA wal_checkpoint(FULL)"))) {
         Q_EMIT operationFailed(i18n("Could not prepare the database for backup: %1", query.lastError().text()));
         return false;
+    }
+    // The backup holds the whole history: create it private before anything is written into it
+    // (VACUUM INTO fills an existing empty file and keeps its permissions).
+    {
+        QFile file(temporaryPath);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::NewOnly)
+            || !file.setPermissions(QFile::ReadOwner | QFile::WriteOwner)) {
+            file.remove();
+            Q_EMIT operationFailed(i18n("Could not create the backup file."));
+            return false;
+        }
     }
     QString escaped = temporaryPath;
     escaped.replace(QLatin1Char('\''), QStringLiteral("''"));

@@ -39,6 +39,8 @@ Kirigami.ScrollablePage {
     // (the two buttons used to dim together, which looked like both had been pressed).
     property string calAction: ""   // "refresh" or "test"
     readonly property bool calWorking: CalendarSync ? calStatus === CalendarSync.Working : false
+    readonly property bool calFailed: CalendarSync ? calStatus === CalendarSync.Failed : false
+    readonly property bool calNotConfigured: CalendarSync ? calStatus === CalendarSync.NotConfigured : false
     readonly property bool calRefreshing: calWorking && calAction === "refresh"
     readonly property bool calTesting: calWorking && calAction === "test"
     // A successful connection test is shown on the Test button itself (a green check for a few
@@ -94,11 +96,41 @@ Kirigami.ScrollablePage {
     }
 
     // The calendar list is not kept between runs, and calendars made on the server since the last
-    // visit should show up: reload it when the page opens, if the calendar is on and signed in.
+    // visit should show up: reload it when the page opens, if the calendar is on and signed in,
+    // unless it was fetched a short while ago (the refresh button always reloads).
     Component.onCompleted: {
         if (CalendarSync && CalendarSync.enabled && CalendarSync.hasPassword && !calWaiting) {
-            CalendarSync.refreshCalendars();
+            CalendarSync.refreshCalendarsIfStale();
         }
+    }
+
+    /// Disconnect forgets the password: asked first.
+    function requestDisconnect(): void {
+        disconnectDialog.open();
+    }
+    readonly property bool disconnectConfirming: disconnectDialog.visible
+
+    Kirigami.PromptDialog {
+        id: disconnectDialog
+        title: i18n("Disconnect the Calendar?")
+        subtitle: i18n("kTomato forgets the password for this calendar service and stops sending events. You can sign in again at any time.")
+        customFooterActions: [
+            Kirigami.Action {
+                text: i18n("Disconnect")
+                icon.name: "network-disconnect"
+                onTriggered: {
+                    disconnectDialog.close();
+                    if (CalendarSync) {
+                        CalendarSync.disconnect();
+                    }
+                }
+            },
+            Kirigami.Action {
+                text: i18n("Cancel")
+                icon.name: "dialog-cancel"
+                onTriggered: disconnectDialog.close()
+            }
+        ]
     }
 
     // Result of the last diagnostics action: "", "copied", "exported" or "exportFailed".
@@ -180,6 +212,17 @@ Kirigami.ScrollablePage {
     component SettingSwitch: QQC2.Switch {
         id: sw
         required property string setting
+        // The label is the title of the SettingRow around the switch: screen readers get it here.
+        readonly property Item row: {
+            let item = sw.parent;
+            while (item && (item.first === undefined || item.title === undefined)) {
+                item = item.parent;
+            }
+            return item;
+        }
+        readonly property string accessibleName: row ? row.title : ""
+        Accessible.name: accessibleName
+        Accessible.description: row ? row.description : ""
         checked: AppSettings[setting]
         onToggled: {
             AppSettings[setting] = checked;
@@ -255,17 +298,15 @@ Kirigami.ScrollablePage {
         Layout.fillWidth: true
         spacing: 0
 
-        Rectangle {
+        Kirigami.Separator {
             Layout.fillWidth: true
-            Layout.preferredHeight: 1
             visible: !row.first
-            color: page.cardBorder
         }
 
         GridLayout {
             Layout.fillWidth: true
-            Layout.topMargin: Kirigami.Units.smallSpacing + 2
-            Layout.bottomMargin: Kirigami.Units.smallSpacing + 2
+            Layout.topMargin: Kirigami.Units.smallSpacing * 1.5
+            Layout.bottomMargin: Kirigami.Units.smallSpacing * 1.5
             columns: page.wide ? 2 : 1
             columnSpacing: Kirigami.Units.largeSpacing
             rowSpacing: Kirigami.Units.smallSpacing
@@ -443,6 +484,7 @@ Kirigami.ScrollablePage {
                     title: i18n("Alert volume")
                     QQC2.Slider {
                         id: soundVolumeSlider
+                        objectName: "soundVolumeSlider"
                         Layout.preferredWidth: Kirigami.Units.gridUnit * 10
                         from: 0
                         to: 100
@@ -705,7 +747,7 @@ Kirigami.ScrollablePage {
                             visible: page.calConnected && !page.calWaiting
                             text: i18n("Disconnect")
                             icon.name: "network-disconnect"
-                            onClicked: CalendarSync.disconnect()
+                            onClicked: page.requestDisconnect()
                         }
                     }
 
@@ -770,7 +812,7 @@ Kirigami.ScrollablePage {
                     // Same row as for Nextcloud: test the connection, or forget this service's login.
                     SettingRow {
                         visible: page.calCustom && page.calConfigured
-                        title: ""
+                        title: i18n("Connection")
                         QQC2.Button {
                             text: i18n("Test")
                             icon.name: page.calTestOk ? "dialog-ok-apply" : "network-wireless-connected-100"
@@ -788,7 +830,7 @@ Kirigami.ScrollablePage {
                         QQC2.Button {
                             text: i18n("Disconnect")
                             icon.name: "network-disconnect"
-                            onClicked: CalendarSync.disconnect()
+                            onClicked: page.requestDisconnect()
                         }
                     }
                     // Calendar choice, with a refresh button to reload the list from the server.
@@ -824,7 +866,7 @@ Kirigami.ScrollablePage {
                                         implicitWidth: Kirigami.Units.gridUnit * 0.6
                                         implicitHeight: implicitWidth
                                         radius: width / 2
-                                        color: modelData.color || "transparent"
+                                        color: modelData.color || Kirigami.Theme.backgroundColor
                                         border.width: 1
                                         border.color: page.cardBorder
                                     }
@@ -873,19 +915,17 @@ Kirigami.ScrollablePage {
                 Kirigami.InlineMessage {
                     Layout.fillWidth: true
                     Layout.topMargin: Kirigami.Units.smallSpacing
-                    visible: CalendarSync !== null && (page.calStatus === CalendarSync.Failed
-                        || (page.calStatus === CalendarSync.NotConfigured
-                            && !page.calCustom && !page.calConnected && !page.calWaiting))
-                    type: page.calStatus === CalendarSync.Failed ? Kirigami.MessageType.Error
-                        : Kirigami.MessageType.Information
+                    visible: page.calFailed
+                        || (page.calNotConfigured && !page.calCustom && !page.calConnected && !page.calWaiting)
+                    type: page.calFailed ? Kirigami.MessageType.Error : Kirigami.MessageType.Information
                     text: {
                         if (!CalendarSync) {
                             return "";
                         }
-                        if (page.calStatus === CalendarSync.NotConfigured) {
+                        if (page.calNotConfigured) {
                             return i18n("Choose a calendar service and sign in to start sending events.");
                         }
-                        if (page.calStatus === CalendarSync.Failed && CalendarSync.lastError.length > 0) {
+                        if (page.calFailed && CalendarSync.lastError.length > 0) {
                             return CalendarSync.lastError;
                         }
                         return CalendarSync.statusText;
@@ -944,6 +984,11 @@ Kirigami.ScrollablePage {
                 iconName: "utilities-terminal"
                 SettingRow {
                     first: true
+                    title: i18n("Allow other programs to control the timer")
+                    description: i18n("Global shortcuts, scripts (D-Bus) and KRunner can start, pause, skip and stop it. Turn this off if you only use kTomato's own window and tray.")
+                    SettingSwitch { setting: "allowExternalControl" }
+                }
+                SettingRow {
                     title: i18n("D-Bus API:")
                     description: i18n("kTomato exposes a native D-Bus interface at %1. You can bind global keys in KDE System Settings → Shortcuts to a command like the one below.",
                                       "io.github.mineraleyt.ktomato /Timer")

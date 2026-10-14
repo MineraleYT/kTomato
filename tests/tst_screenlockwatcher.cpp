@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <QDBusConnection>
+#include <QDBusMessage>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTest>
@@ -9,6 +10,7 @@
 #include "AppSettings.h"
 #include "Autostart.h"
 #include "FakeClock.h"
+#include "PrivateDBus.h"
 #include "ScreenLockWatcher.h"
 #include "TimerEngine.h"
 
@@ -114,6 +116,116 @@ private Q_SLOTS:
 
         watcher->clearLockPauseNotice();
         QVERIFY(!watcher->isPausedByScreenLock());
+    }
+
+    void sleepPausesTheRunningPhaseUntilTheUserResumes()
+    {
+        engine->start();
+        QSignalSpy sleepSpy(watcher.get(), &ScreenLockWatcher::pausedBySleepChanged);
+        QSignalSpy wokeSpy(watcher.get(), &ScreenLockWatcher::wokeUpAfterPause);
+
+        watcher->onPrepareForSleep(true);
+        QCOMPARE(engine->state(), TimerEngine::State::Paused);
+        QVERIFY(watcher->isPausedBySleep());
+        QCOMPARE(sleepSpy.count(), 1);
+
+        // An hour asleep: on waking up the countdown has not moved on, and stays paused.
+        const int remaining = engine->remainingSeconds();
+        clock->advanceSeconds(60 * 60);
+        engine->refresh();
+        watcher->onPrepareForSleep(false);
+        QCOMPARE(wokeSpy.count(), 1);
+        QCOMPARE(engine->state(), TimerEngine::State::Paused);
+        QCOMPARE(engine->remainingSeconds(), remaining);
+
+        engine->resume();
+        QVERIFY(!watcher->isPausedBySleep());
+    }
+
+    void sleepPausesBreaksTooAndIgnoresIdle()
+    {
+        watcher->onPrepareForSleep(true);
+        QCOMPARE(engine->state(), TimerEngine::State::Idle);
+        QVERIFY(!watcher->isPausedBySleep());
+        watcher->onPrepareForSleep(false);
+
+        engine->start();
+        engine->skip(); // into the short break
+        QCOMPARE(engine->state(), TimerEngine::State::ShortBreak);
+        watcher->onPrepareForSleep(true);
+        QCOMPARE(engine->state(), TimerEngine::State::Paused);
+        QVERIFY(watcher->isPausedBySleep());
+    }
+
+    void wakingUpAfterTheUserResumedSaysNothing()
+    {
+        engine->start();
+        watcher->onPrepareForSleep(true);
+        watcher->clearLockPauseNotice();
+        QVERIFY(!watcher->isPausedBySleep());
+        QSignalSpy wokeSpy(watcher.get(), &ScreenLockWatcher::wokeUpAfterPause);
+        watcher->onPrepareForSleep(false);
+        QCOMPARE(wokeSpy.count(), 0);
+    }
+
+    void onlyTheScreenSaverItselfCanReportALock()
+    {
+        PrivateDBus bus;
+        if (!bus.start()) {
+            QSKIP("dbus-daemon is not available");
+        }
+        QDBusConnection session = QDBusConnection::connectToBus(bus.address(), QStringLiteral("watcher-session"));
+        QDBusConnection impostor = QDBusConnection::connectToBus(bus.address(), QStringLiteral("impostor"));
+        QDBusConnection screenSaver = QDBusConnection::connectToBus(bus.address(), QStringLiteral("screen-saver"));
+        QVERIFY(screenSaver.registerService(QStringLiteral("org.freedesktop.ScreenSaver")));
+
+        ScreenLockWatcher lockWatcher(session);
+        lockWatcher.attach(engine.get(), settings.get());
+        engine->start();
+        const auto lockSignal = [] {
+            QDBusMessage signal = QDBusMessage::createSignal(QStringLiteral("/org/freedesktop/ScreenSaver"),
+                                                             QStringLiteral("org.freedesktop.ScreenSaver"),
+                                                             QStringLiteral("ActiveChanged"));
+            signal << true;
+            return signal;
+        };
+
+        QVERIFY(impostor.send(lockSignal()));
+        QTest::qWait(200);
+        QCOMPARE(engine->state(), TimerEngine::State::Working);
+
+        QVERIFY(screenSaver.send(lockSignal()));
+        QTRY_COMPARE(engine->state(), TimerEngine::State::Paused);
+
+        for (const auto &name : {QStringLiteral("watcher-session"), QStringLiteral("impostor"), QStringLiteral("screen-saver")}) {
+            QDBusConnection::disconnectFromBus(name);
+        }
+    }
+
+    void logindSignalOnTheSystemBusPausesTheTimer()
+    {
+        PrivateDBus bus;
+        if (!bus.start()) {
+            QSKIP("dbus-daemon is not available");
+        }
+        QDBusConnection systemBus = QDBusConnection::connectToBus(bus.address(), QStringLiteral("fake-system"));
+        QDBusConnection logind = QDBusConnection::connectToBus(bus.address(), QStringLiteral("fake-logind"));
+        QVERIFY(logind.registerService(QStringLiteral("org.freedesktop.login1")));
+
+        ScreenLockWatcher sleepWatcher(QDBusConnection(QStringLiteral("tst_disconnected_bus")), systemBus);
+        sleepWatcher.attach(engine.get(), settings.get());
+        engine->start();
+
+        QDBusMessage signal = QDBusMessage::createSignal(QStringLiteral("/org/freedesktop/login1"),
+                                                         QStringLiteral("org.freedesktop.login1.Manager"),
+                                                         QStringLiteral("PrepareForSleep"));
+        signal << true;
+        QVERIFY(logind.send(signal));
+        QTRY_COMPARE(engine->state(), TimerEngine::State::Paused);
+        QVERIFY(sleepWatcher.isPausedBySleep());
+
+        QDBusConnection::disconnectFromBus(QStringLiteral("fake-logind"));
+        QDBusConnection::disconnectFromBus(QStringLiteral("fake-system"));
     }
 };
 

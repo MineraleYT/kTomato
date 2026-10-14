@@ -17,6 +17,8 @@ private Q_SLOTS:
     void testSummarizeEmpty();
     void testSummarizeSessions();
     void testSummarizeInterruptedFilter();
+    void testDayViewFollowsTheRealHoursOnClockChangeDays();
+    void testCategoriesIgnoreSurroundingWhitespace();
     void testBreakdownOrder();
     void testTaskBreakdown();
     void testTimerBreakdownGroupsByPreset();
@@ -170,6 +172,92 @@ void TestStatsAggregator::testSummarizeInterruptedFilter()
     QCOMPARE(summary.workSeconds, 0);
     QCOMPARE(summary.interruptedWorkSessions, 0);
     QCOMPARE(summary.hasData(), false);
+}
+
+void TestStatsAggregator::testDayViewFollowsTheRealHoursOnClockChangeDays()
+{
+    const QTimeZone rome("Europe/Rome");
+    if (!rome.isValid()) {
+        QSKIP("No time zone data for Europe/Rome");
+    }
+    const QLocale locale = QLocale::c();
+    auto work = [](qint64 startUtcMs) {
+        SessionRecord r;
+        r.kind = SessionKind::Work;
+        r.startedAtMs = startUtcMs;
+        r.durationSec = 1500;
+        r.plannedSec = 1500;
+        r.completed = true;
+        return r;
+    };
+    auto utc = [](int y, int m, int d, int h, int min) {
+        return QDateTime(QDate(y, m, d), QTime(h, min), QTimeZone::utc()).toMSecsSinceEpoch();
+    };
+
+    // 25 October 2026: 03:00 CEST becomes 02:00 CET, so 02:00-03:00 happens twice. Each one is
+    // its own bar (labelled 2 both times), and no bar holds two hours of work.
+    {
+        const QDate day(2026, 10, 25);
+        const QList<SessionRecord> records = {work(utc(2026, 10, 25, 0, 30)), work(utc(2026, 10, 25, 1, 30))};
+        const StatsSummary s = Stats::summarize(records, StatsPeriod::Day, day, Qt::Monday, rome, locale, true,
+                                                QDateTime(day, QTime(12, 0), rome));
+        QCOMPARE(s.buckets.size(), 25);
+        QCOMPARE(s.buckets[2].label, QStringLiteral("2"));
+        QCOMPARE(s.buckets[3].label, QStringLiteral("2"));
+        QCOMPARE(s.buckets[4].label, QStringLiteral("3"));
+        QCOMPARE(s.buckets[24].label, QStringLiteral("23"));
+        QCOMPARE(s.buckets[2].workSeconds, 1500);
+        QCOMPARE(s.buckets[3].workSeconds, 1500);
+        QCOMPARE(s.buckets[2].endHour, 2);
+        QCOMPARE(s.buckets[12 + 1].isCurrent, true); // 12:00 CET is the 14th real hour of the day
+    }
+
+    // 29 March 2026: 02:00 CET becomes 03:00 CEST; there is no 2 o'clock bar.
+    {
+        const QDate day(2026, 3, 29);
+        const QList<SessionRecord> records = {work(utc(2026, 3, 29, 1, 30))}; // 03:30 CEST
+        const StatsSummary s = Stats::summarize(records, StatsPeriod::Day, day, Qt::Monday, rome, locale, true,
+                                                QDateTime(day, QTime(23, 0), rome));
+        QCOMPARE(s.buckets.size(), 23);
+        QCOMPARE(s.buckets[1].label, QStringLiteral("1"));
+        QCOMPARE(s.buckets[1].endHour, 3);
+        QCOMPARE(s.buckets[2].label, QStringLiteral("3"));
+        QCOMPARE(s.buckets[2].workSeconds, 1500);
+    }
+
+    // An ordinary day keeps its 24 bars, labelled 0..23.
+    {
+        const QDate day(2026, 10, 3);
+        const StatsSummary s = Stats::summarize({}, StatsPeriod::Day, day, Qt::Monday, rome, locale, true,
+                                                QDateTime(day, QTime(12, 0), rome));
+        QCOMPARE(s.buckets.size(), 24);
+        for (int i = 0; i < 24; ++i) {
+            QCOMPARE(s.buckets[i].hour, i);
+            QCOMPARE(s.buckets[i].endHour, (i + 1) % 24);
+        }
+    }
+}
+
+void TestStatsAggregator::testCategoriesIgnoreSurroundingWhitespace()
+{
+    const QTimeZone tz = QTimeZone::utc();
+    const QDate day(2026, 10, 3);
+    QList<SessionRecord> records;
+    for (const QString &category : {QStringLiteral("Study"), QStringLiteral("Study "), QStringLiteral("\tStudy\n")}) {
+        SessionRecord r;
+        r.kind = SessionKind::Work;
+        r.startedAtMs = QDateTime(day, QTime(9, 0), tz).toMSecsSinceEpoch();
+        r.durationSec = 600;
+        r.completed = true;
+        r.category = category;
+        records.append(r);
+    }
+    const StatsSummary s = Stats::summarize(records, StatsPeriod::Day, day, Qt::Monday, tz, QLocale::c(), true,
+                                            QDateTime(day, QTime(12, 0), tz));
+    QCOMPARE(s.byCategory.size(), 1);
+    QCOMPARE(s.byCategory.first().name, QStringLiteral("Study"));
+    QCOMPARE(s.byCategory.first().workSeconds, 1800);
+    QCOMPARE(s.byCategory.first().sessions, 3);
 }
 
 void TestStatsAggregator::testBreakdownOrder()

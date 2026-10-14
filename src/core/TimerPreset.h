@@ -6,6 +6,16 @@
 
 #include "PresetSettings.h"
 
+/// The longest phases and sets accepted anywhere: the timer editor, stored timers, the engine,
+/// KRunner and D-Bus all stay within them.
+namespace PresetLimits
+{
+constexpr int MaxWorkSeconds = 6 * 3600;
+constexpr int MaxBreakSeconds = 2 * 3600;
+constexpr int MaxCycles = 99;
+constexpr int MaxNameLength = 100;
+}
+
 /// A timer definition: the fixed fields plus a free-form option map (see PresetSettings).
 struct TimerPreset {
     QString uuid;

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "TrayController.h"
 
+#include "TrayIconStyle.h"
+
 #include "AppSettings.h"
 #include "PresetModel.h"
 #include "TimerEngine.h"
@@ -50,14 +52,10 @@ QIcon trayIcon(int minutes, int badgeStyle, double progressRatio, bool isWork, b
             p.setOpacity(0.75);
         }
 
-        const QColor workPrimary(0xef, 0x44, 0x44);      // Vibrant red for Work
-        const QColor workTrack(0xef, 0x44, 0x44, 55);
-        const QColor breakPrimary(0x22, 0xc5, 0x5e);     // Vibrant emerald green for Break
-        const QColor breakTrack(0x22, 0xc5, 0x5e, 55);
-
-        const QColor primary = isWork ? workPrimary : breakPrimary;
-        const QColor track = isWork ? workTrack : breakTrack;
-        const QColor dialBg(20, 23, 28, 240);            // High contrast dark dial
+        // Shared with the welcome tour's picture of this icon (see TrayIconStyle.h).
+        const QColor primary = isWork ? TrayIconColors::work() : TrayIconColors::rest();
+        const QColor track = TrayIconColors::track(primary);
+        const QColor dialBg = TrayIconColors::dial();
 
         const double cx = size / 2.0;
 
@@ -121,7 +119,7 @@ QIcon trayIcon(int minutes, int badgeStyle, double progressRatio, bool isWork, b
             }
 
             // Clock hands
-            p.setPen(QPen(Qt::white, qMax(1.2, size * 0.07), Qt::SolidLine, Qt::RoundCap));
+            p.setPen(QPen(TrayIconColors::digits(), qMax(1.2, size * 0.07), Qt::SolidLine, Qt::RoundCap));
             const QPointF center = dialRect.center();
             const double handLen = dialD * 0.28;
             p.drawLine(center, center + QPointF(-handLen * 0.6, -handLen * 0.6));
@@ -151,7 +149,7 @@ QIcon trayIcon(int minutes, int badgeStyle, double progressRatio, bool isWork, b
                     font.setPixelSize(text.length() >= 2 ? qRound(dialD * 0.44) : qRound(dialD * 0.52));
                 }
                 p.setFont(font);
-                p.setPen(Qt::white);
+                p.setPen(TrayIconColors::digits());
                 const QRectF textRect = dialRect.adjusted(0, size <= 24 ? -0.5 : 0, 0, 0);
                 p.drawText(textRect, Qt::AlignCenter, text);
             }

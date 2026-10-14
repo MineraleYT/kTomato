@@ -22,6 +22,7 @@ private Q_SLOTS:
     void testMatchesOfferOnlyRelevantActions();
     void testCustomMinutesDoNotChangeThePreset();
     void testPresetByName();
+    void testControlCanBeTurnedOff();
 };
 
 void TestKRunnerService::testActions()
@@ -208,8 +209,23 @@ void TestKRunnerService::testCustomMinutesDoNotChangeThePreset()
     QVERIFY(timer.remainingSeconds() > 44 * 60);
     QCOMPARE(timer.workSeconds(), 1500);
 
-    QVERIFY(service.Match(QStringLiteral("pomodoro 0")).isEmpty());
-    QVERIFY(service.Match(QStringLiteral("pomodoro 999")).isEmpty());
+    // Out of range, or too long to read at all (toInt() overflows): an explanation, which
+    // starts nothing when chosen.
+    for (const QString &query : {QStringLiteral("pomodoro 0"), QStringLiteral("pomodoro 999"),
+                                 QStringLiteral("pomodoro 99999999999999999999")}) {
+        const auto matches = service.Match(query);
+        QCOMPARE(matches.size(), 1);
+        QCOMPARE(matches.first().id, QStringLiteral("invalid-minutes"));
+        QVERIFY(matches.first().text.contains(QStringLiteral("180")));
+        timer.stop();
+        service.Run(matches.first().id, QString());
+        QVERIFY(!timer.isActive());
+    }
+    // Digits of other scripts are not minutes ("٢٥" is 25 in Arabic-Indic digits).
+    const auto arabic = service.Match(QStringLiteral("pomodoro \u0662\u0665"));
+    QVERIFY(std::none_of(arabic.cbegin(), arabic.cend(), [](const auto &m) {
+        return m.id.startsWith(QStringLiteral("custom:")) || m.id == QStringLiteral("invalid-minutes");
+    }));
 }
 
 void TestKRunnerService::testPresetByName()
@@ -239,6 +255,35 @@ void TestKRunnerService::testPresetByName()
     service.Run(QStringLiteral("preset:") + uuid, QString());
     QCOMPARE(presets.currentUuid(), uuid);
     QVERIFY(timer.isRunning());
+}
+
+void TestKRunnerService::testControlCanBeTurnedOff()
+{
+    TimerEngine timer;
+    PresetModel presets;
+    KRunnerService service(&timer, &presets);
+    bool allowed = false;
+    service.setControlAllowed([&allowed]() { return allowed; });
+    QSignalSpy open(&service, &KRunnerService::openRequested);
+
+    // Only an explanation is offered, and choosing it opens kTomato (where the setting is).
+    const auto matches = service.Match(QStringLiteral("pomodoro 25"));
+    QCOMPARE(matches.size(), 1);
+    QCOMPARE(matches.first().id, QStringLiteral("control-disabled"));
+    service.Run(matches.first().id, QString());
+    QCOMPARE(open.count(), 1);
+
+    // Commands (also a match left over from before the change) do nothing.
+    for (const QString &id : {QStringLiteral("start"), QStringLiteral("custom:25"), QStringLiteral("toggle")}) {
+        service.Run(id, QString());
+        QVERIFY(!timer.isActive());
+    }
+    service.Run(QStringLiteral("x"), QStringLiteral("start"));
+    QVERIFY(!timer.isActive());
+
+    allowed = true;
+    service.Run(QStringLiteral("start"), QString());
+    QVERIFY(timer.isActive());
 }
 
 QTEST_MAIN(TestKRunnerService)

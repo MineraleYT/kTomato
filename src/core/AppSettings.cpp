@@ -8,9 +8,11 @@
 #include <QDebug>
 #include <QDBusServiceWatcher>
 #include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QLocale>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <KColorSchemeManager>
 #include <KConfigGroup>
@@ -23,6 +25,7 @@ namespace
 const char kGroup[] = "General";
 const char kShowTrayIcon[] = "ShowTrayIcon";
 const char kCloseToTray[] = "CloseToTray";
+const char kAllowExternalControl[] = "AllowExternalControl";
 const char kStartMinimized[] = "StartMinimized";
 const char kTrayBadgeStyle[] = "TrayBadgeStyle";
 const char kSoundTheme[] = "SoundTheme";
@@ -54,7 +57,7 @@ QString validColorScheme(const QString &scheme)
 QString findSoundFile(const QString &soundName)
 {
     if (soundName.startsWith(QLatin1Char('/'))) {
-        return QFile::exists(soundName) ? soundName : QString();
+        return QFileInfo(soundName).isFile() ? soundName : QString();
     }
     for (const char *theme : {"ocean", "freedesktop"}) {
         for (const char *ext : {"oga", "ogg", "wav"}) {
@@ -92,6 +95,7 @@ AppSettings::AppSettings(KSharedConfig::Ptr config, std::unique_ptr<Autostart> a
     const KConfigGroup group = m_config->group(QString::fromLatin1(kGroup));
     m_showTrayIcon = group.readEntry(kShowTrayIcon, true);
     m_closeToTray = group.readEntry(kCloseToTray, true);
+    m_allowExternalControl = group.readEntry(kAllowExternalControl, true);
     m_startMinimized = group.readEntry(kStartMinimized, true);
     m_trayBadgeStyle = std::clamp(group.readEntry(kTrayBadgeStyle, 0), 0, 2);
     m_soundTheme = group.readEntry(kSoundTheme, QStringLiteral("alarm-clock-elapsed"));
@@ -194,6 +198,16 @@ void AppSettings::setCloseToTray(bool close)
     Q_EMIT keepRunningInTrayChanged();
 }
 
+void AppSettings::setAllowExternalControl(bool allow)
+{
+    if (m_allowExternalControl == allow) {
+        return;
+    }
+    m_allowExternalControl = allow;
+    store(kAllowExternalControl, allow);
+    Q_EMIT allowExternalControlChanged();
+}
+
 bool AppSettings::startAtLogin() const
 {
     return m_autostart && m_autostart->isEnabled();
@@ -207,6 +221,10 @@ void AppSettings::setStartAtLogin(bool enabled)
     if (enabled != startAtLogin() && !m_autostart->setEnabled(enabled)) {
         Q_EMIT autostartFailed(enabled ? i18n("Could not set up starting kTomato at login.")
                                        : i18n("Could not remove the entry that starts kTomato at login."));
+    } else if (!enabled) {
+        // "Start minimized" only means something for the start at login: switched off with it,
+        // it never stays on unseen behind the disabled row.
+        setStartMinimized(false);
     }
     // Always announced: after a failure this makes views show the real state again.
     Q_EMIT startAtLoginChanged();
@@ -436,11 +454,15 @@ void AppSettings::applyColorScheme()
 void AppSettings::playSoundPreview(const QString &soundName, int volume)
 {
     const int vol = (volume >= 0) ? std::clamp(volume, 0, 100) : m_soundVolume;
+    if (!isUsableSoundName(soundName)) {
+        qWarning() << "Ignoring the sound" << soundName << ": not a sound name or an absolute path";
+        return;
+    }
     const QString file = findSoundFile(soundName);
     if (file.isEmpty()) {
         // Not a file we can find: let libcanberra resolve the event sound name.
         if (QStandardPaths::findExecutable(QStringLiteral("canberra-gtk-play")).isEmpty()
-            || !QProcess::startDetached(QStringLiteral("canberra-gtk-play"), {QStringLiteral("-i"), soundName})) {
+            || !QProcess::startDetached(QStringLiteral("canberra-gtk-play"), canberraArguments(soundName))) {
             qWarning() << "Sound" << soundName << "not found and canberra-gtk-play is unavailable";
         }
         return;
@@ -460,6 +482,20 @@ void AppSettings::playSoundPreview(const QString &soundName, int volume)
         }
     }
     qWarning() << "Cannot play" << file << "- neither pw-play nor paplay could be started";
+}
+
+bool AppSettings::isUsableSoundName(const QString &soundName)
+{
+    if (soundName.startsWith(QLatin1Char('/'))) {
+        return !soundName.contains(QStringLiteral("/../")) && !soundName.endsWith(QStringLiteral("/.."));
+    }
+    static const QRegularExpression name(QStringLiteral("^[A-Za-z0-9_][A-Za-z0-9._-]*$"));
+    return name.match(soundName).hasMatch() && !soundName.contains(QStringLiteral(".."));
+}
+
+QStringList AppSettings::canberraArguments(const QString &soundName)
+{
+    return {QStringLiteral("--id=") + soundName};
 }
 
 void AppSettings::openShortcutsSettings()

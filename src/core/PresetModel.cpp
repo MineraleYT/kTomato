@@ -13,9 +13,9 @@ const QString PresetModel::DefaultUuid = QStringLiteral("default");
 
 namespace
 {
-constexpr int kMaxWorkSeconds = 6 * 3600;
-constexpr int kMaxBreakSeconds = 2 * 3600;
-constexpr int kMaxCycles = 99;
+constexpr int kMaxWorkSeconds = PresetLimits::MaxWorkSeconds;
+constexpr int kMaxBreakSeconds = PresetLimits::MaxBreakSeconds;
+constexpr int kMaxCycles = PresetLimits::MaxCycles;
 
 int clampedInt(const QVariant &value, int low, int high, int fallback)
 {
@@ -189,16 +189,40 @@ QVariantList PresetModel::availableIcons() const
     };
 }
 
-void PresetModel::applyFields(TimerPreset &preset, const QVariantMap &fields)
+QStringList PresetModel::applyFields(TimerPreset &preset, const QVariantMap &fields)
 {
+    // Values the editor cannot produce (other callers, hand-made data) are brought into range
+    // rather than refused; every field that had to change is reported.
+    QStringList adjusted;
+    const auto text = [&](const QString &key) {
+        const QString given = fields.value(key).toString().trimmed();
+        const QString kept = given.left(PresetLimits::MaxNameLength).trimmed();
+        if (kept != given) {
+            adjusted.append(key);
+        }
+        return kept;
+    };
+    const auto number = [&](const QString &key, int low, int high, int current) {
+        if (!fields.contains(key)) {
+            return current;
+        }
+        bool ok = false;
+        const int given = fields.value(key).toInt(&ok);
+        const int kept = ok ? std::clamp(given, low, high) : current;
+        if (!ok || kept != given) {
+            adjusted.append(key);
+        }
+        return kept;
+    };
+
     if (fields.contains(QStringLiteral("name"))) {
-        const QString name = fields.value(QStringLiteral("name")).toString().trimmed();
+        const QString name = text(QStringLiteral("name"));
         if (!name.isEmpty()) {
             preset.name = name;
         }
     }
     if (fields.contains(QStringLiteral("category"))) {
-        preset.category = fields.value(QStringLiteral("category")).toString().trimmed();
+        preset.category = text(QStringLiteral("category"));
     }
     if (fields.contains(QStringLiteral("iconName"))) {
         const QString icon = fields.value(QStringLiteral("iconName")).toString().trimmed();
@@ -208,20 +232,24 @@ void PresetModel::applyFields(TimerPreset &preset, const QVariantMap &fields)
             preset.options.remove(QStringLiteral("iconName"));
         }
     }
-    preset.workSeconds = clampedInt(fields.value(QStringLiteral("workSeconds")), 1, kMaxWorkSeconds, preset.workSeconds);
-    preset.shortBreakSeconds = clampedInt(fields.value(QStringLiteral("shortBreakSeconds")), 0, kMaxBreakSeconds, preset.shortBreakSeconds);
-    preset.longBreakSeconds = clampedInt(fields.value(QStringLiteral("longBreakSeconds")), 0, kMaxBreakSeconds, preset.longBreakSeconds);
-    preset.cyclesBeforeLong = clampedInt(fields.value(QStringLiteral("cyclesBeforeLong")), 0, kMaxCycles, preset.cyclesBeforeLong);
+    preset.workSeconds = number(QStringLiteral("workSeconds"), 1, kMaxWorkSeconds, preset.workSeconds);
+    preset.shortBreakSeconds = number(QStringLiteral("shortBreakSeconds"), 0, kMaxBreakSeconds, preset.shortBreakSeconds);
+    preset.longBreakSeconds = number(QStringLiteral("longBreakSeconds"), 0, kMaxBreakSeconds, preset.longBreakSeconds);
+    preset.cyclesBeforeLong = number(QStringLiteral("cyclesBeforeLong"), 0, kMaxCycles, preset.cyclesBeforeLong);
 
     for (const auto &desc : PresetSettings::descriptors()) {
         if (fields.contains(desc.key)) {
             const QVariant value = coercedOption(desc, fields.value(desc.key));
+            if (desc.type == QLatin1String("int") && value.toInt() != fields.value(desc.key).toInt()) {
+                adjusted.append(desc.key);
+            }
             preset.options.insert(desc.key, value);
             if (desc.key == PresetOption::AutoStartMode) {
                 preset.options.insert(PresetOption::AutoStart, value.toInt() == 2);
             }
         }
     }
+    return adjusted;
 }
 
 QString PresetModel::summaryFor(const TimerPreset &preset)
@@ -449,7 +477,7 @@ QString PresetModel::create(const QVariantMap &fields)
     TimerPreset preset;
     preset.uuid = QUuid::createUuid().toString(QUuid::WithoutBraces);
     preset.name = i18n("New Timer");
-    applyFields(preset, fields);
+    const QStringList adjusted = applyFields(preset, fields);
 
     const int row = count();
     beginInsertRows({}, row, row);
@@ -457,6 +485,9 @@ QString PresetModel::create(const QVariantMap &fields)
     endInsertRows();
     Q_EMIT countChanged();
     Q_EMIT modified();
+    if (!adjusted.isEmpty()) {
+        Q_EMIT valuesAdjusted(preset.uuid, adjusted);
+    }
     return preset.uuid;
 }
 
@@ -466,13 +497,16 @@ bool PresetModel::update(const QString &uuid, const QVariantMap &fields)
     if (row < 0) {
         return false;
     }
-    applyFields(m_presets[row], fields);
+    const QStringList adjusted = applyFields(m_presets[row], fields);
     Q_EMIT dataChanged(index(row), index(row));
     Q_EMIT presetChanged(uuid);
     if (uuid == m_currentUuid) {
         Q_EMIT currentChanged();
     }
     Q_EMIT modified();
+    if (!adjusted.isEmpty()) {
+        Q_EMIT valuesAdjusted(uuid, adjusted);
+    }
     return true;
 }
 

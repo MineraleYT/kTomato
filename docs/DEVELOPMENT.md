@@ -172,7 +172,7 @@ A release is a version bump, a commit, an annotated tag and a push. The release 
    ```sh
    appstreamcli validate --no-net data/io.github.mineraleyt.ktomato.metainfo.xml
    desktop-file-validate data/io.github.mineraleyt.ktomato.desktop \
-       data/io.github.mineraleyt.ktomato.runner.desktop
+       build/io.github.mineraleyt.ktomato.runner.desktop
    ```
 7. Commit (`Release vX.Y.Z: …`), then tag and push:
    ```sh
@@ -180,4 +180,4 @@ A release is a version bump, a commit, an annotated tag and a push. The release 
    git push origin main vX.Y.Z
    ```
 
-The workflow refuses to publish unless the tag, the version in `CMakeLists.txt` and the newest `<release>` in the metainfo all agree. Pushes that only change Markdown files or `docs/` do not trigger a build or a release.
+The workflow refuses to publish unless the tag, the version in `CMakeLists.txt` and the newest `<release>` in the metainfo all agree. Every `v*` tag is built, tested and published, whatever the tagged commit changed. Pushes to `main` that only change Markdown files or `docs/` skip CI. Third-party actions and the build image are pinned to a commit or digest; Dependabot proposes updates.

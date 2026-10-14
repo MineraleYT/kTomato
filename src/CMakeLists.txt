@@ -42,6 +42,7 @@ target_sources(ktomato PRIVATE
     core/TrayPresenter.cpp
     core/TrayController.h
     core/TrayController.cpp
+    core/TrayIconStyle.h
     core/UpdateChecker.h
     core/UpdateChecker.cpp
     core/Diagnostics.h
@@ -71,6 +72,8 @@ target_sources(ktomato PRIVATE
     platform/KRunnerService.cpp
     platform/ScreenLockWatcher.h
     platform/ScreenLockWatcher.cpp
+    platform/SecretStore.h
+    platform/SecretStore.cpp
     db/Database.h
     db/Database.cpp
     db/PresetRepository.h

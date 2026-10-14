@@ -37,6 +37,9 @@ public:
     /// phase ends; without it, notifications do not offer to log a task note.
     void setLastWorkSessionIdProvider(std::function<qint64()> provider);
 
+    /// How long an announcement waits for the silencing to end before going out anyway.
+    void setReleaseTimeoutMs(int ms) { m_releaseTimeoutMs = ms; }
+
 Q_SIGNALS:
     /// The user wants to write a note for the work session `sessionId`.
     void taskNotePromptRequested(const QString &presetName, qint64 sessionId);
@@ -44,6 +47,8 @@ Q_SIGNALS:
     void taskNoteSubmitted(qint64 sessionId, const QString &note);
     /// The notification was clicked and there is nothing more specific to do: show the window.
     void showWindowRequested();
+    /// The end of `finished` was announced (sound and/or popup), now that notifications are back.
+    void phaseEndAnnounced(TimerEngine::Phase finished);
 
 private Q_SLOTS:
     void onPhaseFinished(TimerEngine::Phase finished, TimerEngine::Phase next);
@@ -55,5 +60,6 @@ private:
     NotificationInhibitor *m_inhibitor;
     AppSettings *m_settings;
     std::function<qint64()> m_lastWorkSessionId;
+    int m_releaseTimeoutMs = 2000;
     quint64 m_phaseSerial = 0; ///< Counts phaseStarted(), so stale notification actions can be ignored.
 };

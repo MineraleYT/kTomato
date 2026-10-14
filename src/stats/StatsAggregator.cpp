@@ -9,22 +9,26 @@ namespace Stats
 {
 namespace
 {
+constexpr qint64 kHourMs = 3600 * 1000;
+
 QDate startOfWeek(const QDate &date, Qt::DayOfWeek firstDayOfWeek)
 {
     const int back = (date.dayOfWeek() - int(firstDayOfWeek) + 7) % 7;
     return date.addDays(-back);
 }
 
-QList<StatsBucket> makeBuckets(StatsPeriod kind, const PeriodRange &range, const QLocale &locale)
+QList<StatsBucket> makeBuckets(StatsPeriod kind, const PeriodRange &range, const QLocale &locale, const QTimeZone &timeZone)
 {
     QList<StatsBucket> buckets;
     switch (kind) {
     case StatsPeriod::Day:
-        for (int hour = 0; hour < 24; ++hour) {
+        // One bar per real hour from midnight to midnight, labelled with the clock hour.
+        for (qint64 startMs = range.startMs; startMs < range.endMs; startMs += kHourMs) {
             StatsBucket b;
-            b.hour = hour;
+            b.hour = QDateTime::fromMSecsSinceEpoch(startMs, timeZone).time().hour();
+            b.endHour = QDateTime::fromMSecsSinceEpoch(std::min(startMs + kHourMs, range.endMs), timeZone).time().hour();
             b.date = range.firstDay;
-            b.label = QString::number(hour);
+            b.label = QString::number(b.hour);
             buckets.append(b);
         }
         break;
@@ -54,7 +58,7 @@ int bucketIndex(StatsPeriod kind, const PeriodRange &range, const QDateTime &loc
 {
     switch (kind) {
     case StatsPeriod::Day:
-        return local.time().hour();
+        return int((local.toMSecsSinceEpoch() - range.startMs) / kHourMs);
     case StatsPeriod::Week:
     case StatsPeriod::Month:
         return int(range.firstDay.daysTo(local.date()));
@@ -132,7 +136,7 @@ StatsSummary summarize(const QList<SessionRecord> &records,
     const PeriodRange range = rangeFor(kind, anchor, firstDayOfWeek, timeZone);
 
     StatsSummary summary;
-    summary.buckets = makeBuckets(kind, range, locale);
+    summary.buckets = makeBuckets(kind, range, locale, timeZone);
 
     // Mark the bucket that contains "now", if "now" falls in this period.
     const QDateTime localNow = now.toTimeZone(timeZone);
@@ -187,8 +191,10 @@ StatsSummary summarize(const QList<SessionRecord> &records,
             timer.workSeconds += seconds;
             timer.sessions += record.completed ? 1 : 0;
 
-            BreakdownEntry &category = byCategory[record.category];
-            category.name = record.category;
+            // Grouped like task notes: surrounding whitespace does not make another category.
+            const QString categoryName = record.category.trimmed();
+            BreakdownEntry &category = byCategory[categoryName];
+            category.name = categoryName;
             category.workSeconds += seconds;
             category.sessions += record.completed ? 1 : 0;
 

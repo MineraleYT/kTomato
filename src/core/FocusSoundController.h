@@ -42,6 +42,8 @@ public:
 
     int volume() const { return m_volume; }
     void setVolume(int volume);
+    /// The volume the player uses now: the preview's while one plays, else volume().
+    int playbackVolume() const { return m_previewing ? m_previewVolume : m_volume; }
 
     bool isPlaying() const { return m_isPlaying; }
 
@@ -72,6 +74,7 @@ private:
     int m_mode = 0;
     int m_previewMode = 0;
     int m_volume = 30;
+    int m_previewVolume = 30; ///< Kept apart, so a preview never changes the work-phase volume.
     bool m_isPlaying = false;
     bool m_previewing = false;
 

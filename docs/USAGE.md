@@ -29,10 +29,15 @@ A *timer* (preset) bundles the durations of a work phase, a short break and a lo
 
 - **Name, category and icon** appear in the timer list, the tray menu and the statistics. The category is also used as the label of the phase chip while you work.
 - **Auto-start** decides what happens when a phase ends: *Manual* (nothing starts by itself), *Breaks only*, or *Everything*.
+- **A long break of 0 minutes** means no long break: the set still ends there, with a short break instead. Set both breaks to 0 to go straight from one work session to the next.
 - **Silence notifications while working**, **play a sound** and **show a notification** when a phase ends can be set per timer.
 - The timer you pick stays selected the next time you start kTomato. You cannot switch timers while one is running.
 
 Pausing keeps the remaining time; stopping resets the phase. A phase stopped early is recorded as *interrupted* in the statistics if it ran for at least five seconds.
+
+Skipping a running work session counts it towards the long break. Skipping a work session that has not started yet (for example with the notification's **Skip** button) moves on to the short break without counting it, so the long break is only reached by working.
+
+When the computer goes to sleep, a running phase is paused, and it stays paused after the computer wakes up until you resume it: the time asleep never counts as work or as a break.
 
 ---
 
@@ -105,8 +110,8 @@ Choose **Custom CalDAV** and enter the calendar's CalDAV address, your user name
 - **Subscription links do not work.** A calendar link ending in `.ics` is read-only: it lets you *see* events, not add them. Use the calendar's CalDAV address.
 - **What is sent:** the timer name, its category and the real start and end times. The task note goes in the event description only if you turn on *Include the task note in the event description*.
 - **Secure connections only:** addresses must be `https://` (plain `http://` is accepted only for `localhost`). Certificate errors are never ignored.
-- **If the server is unreachable**, events wait in a queue (up to 100) and kTomato retries every few minutes while it is running. Events still waiting when you quit are lost.
-- **Where the password is kept:** in `~/.config/ktomatorc`, a file readable only by you. It is never written to logs or to the diagnostics report.
+- **If the server is unreachable**, events wait in a queue (up to 100) and kTomato retries every few minutes while it is running. The queue is kept when you quit and sent at the next start. Each waiting event belongs to the account that was set up when it was recorded: if you sign in with another account, the old account's waiting events are dropped instead of being sent to the new one. Work sessions that end after you turn the calendar on but before you finish signing in also wait, and go to the account you then set up (unless it is another user name than the one you had entered).
+- **Where the password is kept:** in your desktop keyring (KWallet on Plasma, or any other Secret Service keyring). Only when no keyring is available is it kept in `~/.config/ktomatorc`, a file readable only by you; it moves to the keyring by itself the next time one is available. It is never written to logs or to the diagnostics report.
 - **Not supported:** Proton Calendar (to our knowledge it offers no way for other apps to add events), and calendars that only accept an OAuth sign-in, such as Google Calendar or Microsoft 365.
 
 ---
@@ -153,6 +158,8 @@ kTomato exposes a D-Bus interface:
 - **state**: `idle`, `running` or `paused`;
 - **phase**: `work`, `short_break` or `long_break` (when idle, the phase that starts next);
 - **seconds**: time left in the phase, in whole seconds.
+
+These commands, and the KRunner ones, can be turned off in **Settings → Global Shortcuts and Automation → Allow other programs to control the timer**. They then answer with the error `io.github.mineraleyt.ktomato.Error.ControlDisabled` and change nothing; `status` keeps working.
 
 Depending on your distribution, `qdbus` may be called `qdbus6` or `qdbus-qt6`. If kTomato is not running, calling the service starts it hidden in the system tray (D-Bus activation). You can also start it that way yourself with `ktomato --background`.
 

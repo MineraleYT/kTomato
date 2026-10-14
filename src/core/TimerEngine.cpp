@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "TimerEngine.h"
 
+#include "TimerPreset.h"
+
 #include <algorithm>
 
 namespace
@@ -101,8 +103,23 @@ void TimerEngine::start()
     }
 }
 
+bool TimerEngine::finishIfDue()
+{
+    if (!isRunning()) {
+        return false;
+    }
+    const qint64 now = m_clock->monotonicMs();
+    if (now < m_deadlineMs) {
+        return false;
+    }
+    // The time was up before the next tick noticed: the phase was completed, not cut short.
+    completePhase(now);
+    return true;
+}
+
 void TimerEngine::pause()
 {
+    finishIfDue(); // pausing then applies to the phase that follows, if it started by itself
     if (!isRunning()) {
         return;
     }
@@ -140,6 +157,7 @@ void TimerEngine::toggle()
 
 void TimerEngine::stop()
 {
+    finishIfDue();
     if (m_state == State::Idle) {
         return;
     }
@@ -160,8 +178,21 @@ void TimerEngine::reset()
 
 void TimerEngine::skip()
 {
+    if (finishIfDue()) {
+        // The phase being skipped had just ended: skipping means "go on with the next one now".
+        if (m_state == State::Idle) {
+            startPhase(m_phase);
+        }
+        return;
+    }
     if (m_state == State::Idle) {
         // Nothing runs, so nothing is recorded: just move on to what would follow the pending phase.
+        if (m_phase == Phase::Work) {
+            // No work was done, so no cycle is counted (the long break is earned, not skipped to):
+            // the ordinary break follows, if there is one.
+            setIdle(durationMs(Phase::ShortBreak) > 0 ? Phase::ShortBreak : Phase::Work);
+            return;
+        }
         setIdle(nextPhaseAfter(m_phase));
         return;
     }
@@ -171,10 +202,11 @@ void TimerEngine::skip()
 
 void TimerEngine::startCustomWork(int seconds)
 {
+    finishIfDue();
     if (m_state != State::Idle) {
         emitSessionEnded(false, m_clock->wallTime());
     }
-    startPhase(Phase::Work, std::max(1, seconds) * 1000LL);
+    startPhase(Phase::Work, std::clamp(seconds, 1, PresetLimits::MaxWorkSeconds) * 1000LL);
 }
 
 void TimerEngine::refresh()
@@ -194,21 +226,29 @@ void TimerEngine::refresh()
 
 void TimerEngine::startPhase(Phase phase, qint64 plannedMs)
 {
+    if (phase == Phase::LongBreak && durationMs(phase) <= 0) {
+        // A pending long break whose duration was set to 0 meanwhile: it still ends the set, and
+        // the ordinary break takes its place (normally handled by nextPhaseAfter()).
+        setCycles(0);
+        phase = Phase::ShortBreak;
+    }
     if (phase != Phase::Work && durationMs(phase) <= 0) {
-        // A zero-length break means "no break": go straight back to work. Normally handled by
-        // nextPhaseAfter(); this covers a pending break whose duration was set to 0 meanwhile.
-        if (phase == Phase::LongBreak) {
-            setCycles(0);
-        }
+        // A zero-length break means "no break": go straight back to work.
         phase = Phase::Work;
     }
 
-    setPhase(phase);
+    // The new timing is in place before phaseChanged/stateChanged go out, so a listener never
+    // sees the new phase with the old (passed) deadline.
     m_plannedMs = plannedMs >= 0 ? plannedMs : durationMs(phase);
     m_startWall = m_clock->wallTime();
     m_deadlineMs = m_clock->monotonicMs() + m_plannedMs;
     m_warnedOneMinute = false;
-    setState(stateFor(phase));
+    const State previous = m_state;
+    m_state = stateFor(phase);
+    setPhase(phase);
+    if (m_state != previous) {
+        Q_EMIT stateChanged();
+    }
     m_ticker.start();
     notifyTime(true);
     Q_EMIT phaseStarted(phase);
@@ -268,16 +308,15 @@ TimerEngine::Phase TimerEngine::nextPhaseAfter(Phase finished)
     switch (finished) {
     case Phase::Work: {
         setCycles(m_completedCycles + 1);
-        const Phase brk = (m_cyclesBeforeLong > 0 && m_completedCycles >= m_cyclesBeforeLong) ? Phase::LongBreak
-                                                                                              : Phase::ShortBreak;
-        if (durationMs(brk) > 0) {
-            return brk;
-        }
-        // No break configured: back to work. A passed-over long break still ends the set.
-        if (brk == Phase::LongBreak) {
+        Phase brk = (m_cyclesBeforeLong > 0 && m_completedCycles >= m_cyclesBeforeLong) ? Phase::LongBreak
+                                                                                        : Phase::ShortBreak;
+        if (brk == Phase::LongBreak && durationMs(brk) <= 0) {
+            // No long break configured: the set still ends here, with the ordinary break.
             setCycles(0);
+            brk = Phase::ShortBreak;
         }
-        return Phase::Work;
+        // No break at all: back to work.
+        return durationMs(brk) > 0 ? brk : Phase::Work;
     }
     case Phase::ShortBreak:
         return Phase::Work;
@@ -317,6 +356,7 @@ void TimerEngine::setCycles(int cycles)
 void TimerEngine::notifyTime(bool force)
 {
     const int seconds = remainingSeconds();
+    const int previousSeconds = m_lastRemainingSeconds;
     if (force || seconds != m_lastRemainingSeconds) {
         m_lastRemainingSeconds = seconds;
         Q_EMIT remainingChanged();
@@ -330,7 +370,11 @@ void TimerEngine::notifyTime(bool force)
     if (force) {
         Q_EMIT totalChanged();
     }
-    Q_EMIT progressChanged();
+    // Only when the shown time moves: the ticker runs ten times a second, and every listener
+    // (the progress ring, the tray) would otherwise redraw for nothing, even when hidden.
+    if (force || seconds != previousSeconds) {
+        Q_EMIT progressChanged();
+    }
 }
 
 void TimerEngine::refreshIdleDisplay()
@@ -344,7 +388,7 @@ void TimerEngine::refreshIdleDisplay()
 
 void TimerEngine::setWorkSeconds(int seconds)
 {
-    seconds = std::max(1, seconds);
+    seconds = std::clamp(seconds, 1, PresetLimits::MaxWorkSeconds);
     if (m_workSeconds != seconds) {
         m_workSeconds = seconds;
         Q_EMIT workSecondsChanged();
@@ -354,7 +398,7 @@ void TimerEngine::setWorkSeconds(int seconds)
 
 void TimerEngine::setShortBreakSeconds(int seconds)
 {
-    seconds = std::max(0, seconds);
+    seconds = std::clamp(seconds, 0, PresetLimits::MaxBreakSeconds);
     if (m_shortBreakSeconds != seconds) {
         m_shortBreakSeconds = seconds;
         Q_EMIT shortBreakSecondsChanged();
@@ -364,7 +408,7 @@ void TimerEngine::setShortBreakSeconds(int seconds)
 
 void TimerEngine::setLongBreakSeconds(int seconds)
 {
-    seconds = std::max(0, seconds);
+    seconds = std::clamp(seconds, 0, PresetLimits::MaxBreakSeconds);
     if (m_longBreakSeconds != seconds) {
         m_longBreakSeconds = seconds;
         Q_EMIT longBreakSecondsChanged();
@@ -374,7 +418,7 @@ void TimerEngine::setLongBreakSeconds(int seconds)
 
 void TimerEngine::setCyclesBeforeLong(int cycles)
 {
-    cycles = std::max(0, cycles);
+    cycles = std::clamp(cycles, 0, PresetLimits::MaxCycles);
     if (m_cyclesBeforeLong != cycles) {
         m_cyclesBeforeLong = cycles;
         Q_EMIT cyclesBeforeLongChanged();

@@ -53,7 +53,14 @@ public:
 
 private:
     bool connect(bool *corrupt = nullptr);
-    bool belongsToUs(QSqlDatabase &db, bool *corrupt) const;
+    enum class Ownership {
+        Ours,
+        Foreign,
+        Corrupt,
+        /// The file could not be read (busy, locked, I/O): no verdict, so it must not be touched.
+        Unknown,
+    };
+    Ownership ownership(QSqlDatabase &db);
     bool moveFileAside(const QString &reason);
     bool hasSqliteHeader() const;
     static bool isCorruptionError(const QString &nativeCode);

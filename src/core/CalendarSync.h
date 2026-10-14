@@ -17,10 +17,12 @@
 #include <QtQml/qqmlregistration.h>
 
 #include <functional>
+#include <memory>
 
 #include "SessionRepository.h"
 
 class QNetworkAccessManager;
+class SecretStore;
 class QNetworkReply;
 
 /**
@@ -30,8 +32,13 @@ class QNetworkReply;
  * Nothing happens on the network unless the feature is enabled and the user triggers a login,
  * a test, a calendar search, or a work phase completes. Credentials only travel over https
  * (loopback http is allowed so tests and local servers work); TLS errors are never ignored.
- * The app password lives in ktomatorc (group "Calendar"); it is never exposed back, logged or
- * shown in any text.
+ * The app password lives in the desktop keyring (Secret Service) when one answers, and only
+ * otherwise in ktomatorc (group "Calendar", a file private to the user); it is never exposed
+ * back, logged or shown in any text.
+ *
+ * Events waiting to be sent are kept in ktomatorc too, so they survive a restart. Each one
+ * belongs to the account (provider, user name, calendar server) that was set up when its work
+ * phase ended, and is only ever sent to that account.
  */
 class CalendarSync : public QObject
 {
@@ -74,6 +81,8 @@ public:
     explicit CalendarSync(QObject *parent = nullptr);
     /// `config` is where the settings (group "Calendar") are kept; tests pass a temporary file.
     explicit CalendarSync(KSharedConfig::Ptr config, QObject *parent = nullptr);
+    /// `secrets` keeps the password; null keeps it in `config`.
+    CalendarSync(KSharedConfig::Ptr config, std::unique_ptr<SecretStore> secrets, QObject *parent = nullptr);
     ~CalendarSync() override;
 
     bool enabled() const { return m_enabled; }
@@ -101,6 +110,8 @@ public:
     Q_INVOKABLE void cancelLogin();
     Q_INVOKABLE void setPassword(const QString &password);
     Q_INVOKABLE void refreshCalendars();
+    /// refreshCalendars(), unless the list was fetched less than five minutes ago.
+    Q_INVOKABLE void refreshCalendarsIfStale();
     Q_INVOKABLE void selectCalendar(const QString &url, const QString &name);
     Q_INVOKABLE void testConnection();
     Q_INVOKABLE void disconnect();
@@ -131,6 +142,7 @@ public:
     void setLoginPollIntervalForTesting(int ms) { m_pollIntervalMs = ms; }
     void setOpenUrlHandler(std::function<void(const QUrl &)> handler) { m_openUrl = std::move(handler); }
     bool isSendingPaused() const { return m_paused; }
+    bool isPasswordInKeyring() const { return m_passwordInKeyring; }
 
 public Q_SLOTS:
     void enqueueWorkSession(const SessionRecord &record);
@@ -160,6 +172,7 @@ private:
     struct Pending {
         SessionRecord record;
         QString uid;
+        QString account; ///< currentAccount() when it was queued.
     };
 
     void load();
@@ -167,6 +180,23 @@ private:
     void loadProviderFields();
     void switchProvider(const QString &provider);
     void save(const char *key, const QVariant &value);
+    QString secretKey() const;
+    void storePassword(const QString &password);
+    QString currentAccount() const;
+    /// The account of an event queued before the account was complete (see dropOtherAccounts()).
+    QString unboundAccount() const;
+    void loadQueue();
+    void saveQueue();
+    /// Persists the queue and announces the new count.
+    void queueChanged();
+    void appendBounded(const Pending &item);
+    void dropOtherAccounts();
+    int inFlightIndex() const;
+    /// True if both give the same event (the note counts only when it is sent).
+    bool sameEvent(const SessionRecord &a, const SessionRecord &b) const;
+    /// For Nextcloud, the calendar must be on the server that was signed in to.
+    bool calendarOnServer(const QString &calendarUrl, QString *error) const;
+    void removeLeftoverTestEvents();
     bool configured() const;
     void credentialsChanged();
     void refreshIdleStatus();
@@ -196,6 +226,8 @@ private:
     void endLogin();
 
     KSharedConfig::Ptr m_config;
+    std::unique_ptr<SecretStore> m_secrets;
+    bool m_passwordInKeyring = false;
     QNetworkAccessManager *m_nam = nullptr;
     QSet<QNetworkReply *> m_replies;
     quint64 m_generation = 0; ///< Bumped to ignore answers to requests made before disconnect()/cancelLogin().
@@ -214,12 +246,16 @@ private:
     QString m_lastError;
     QDateTime m_lastSuccess;
     QList<CalendarInfo> m_calendars;
+    QDeadlineTimer m_calendarsFresh; ///< Running while the fetched list counts as recent.
     int m_busy = 0;
 
     QList<Pending> m_queue;
     QList<Pending> m_sent; ///< The last events sent, oldest first, bounded.
     bool m_inFlight = false;
-    QString m_inFlightNote;
+    QString m_inFlightUid;
+    /// Connection-test events the server did not let us remove yet, with their account.
+    QList<QPair<QString, QString>> m_leftoverTests;
+    SessionRecord m_inFlightRecord; ///< What the request on its way carries.
     bool m_paused = false;
     bool m_sendFailing = false; ///< The last attempt failed for a reason that may pass.
     bool m_loginStarting = false;

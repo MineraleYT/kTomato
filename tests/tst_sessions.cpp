@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include <QSignalSpy>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTest>
 
 #include <KLocalizedString>
@@ -185,6 +188,65 @@ private Q_SLOTS:
 
     // --- SessionRecorder -----------------------------------------------------
 
+    /// Makes the database refuse new sessions, as a full disk or a lock would.
+    void failSessionInserts(bool fail)
+    {
+        QSqlQuery query(QSqlDatabase::database(db->connectionName()));
+        if (fail) {
+            QVERIFY(query.exec(QStringLiteral("CREATE TEMP TRIGGER refuse BEFORE INSERT ON session "
+                                              "BEGIN SELECT RAISE(ABORT, 'disk full'); END")));
+        } else {
+            QVERIFY(query.exec(QStringLiteral("DROP TRIGGER refuse")));
+        }
+    }
+
+    void sessionsTheDatabaseRefusesAreKeptAndStoredLater()
+    {
+        QSignalSpy failing(recorder.get(), &SessionRecorder::saveFailingChanged);
+        QSignalSpy workRecorded(recorder.get(), &SessionRecorder::workSessionRecorded);
+        recorder->setRetryIntervalForTesting(30);
+        failSessionInserts(true);
+        engine->start();
+        elapse(25 * 60);
+        QVERIFY(all().isEmpty());
+        QVERIFY(recorder->isSaveFailing());
+        QCOMPARE(failing.count(), 1);
+        QCOMPARE(recorder->lastWorkSessionId(), -1);
+        QCOMPARE(workRecorded.count(), 0);
+
+        // A second phase ends while the database still refuses: both wait, in order.
+        engine->start();
+        elapse(5 * 60);
+        QVERIFY(all().isEmpty());
+        QCOMPARE(failing.count(), 1);
+
+        failSessionInserts(false);
+        QTRY_VERIFY(!recorder->isSaveFailing());
+        QCOMPARE(failing.count(), 2);
+        const QList<SessionRecord> r = all();
+        QCOMPARE(r.size(), 2);
+        QCOMPARE(r.at(0).kind, SessionKind::Work);
+        QCOMPARE(r.at(1).kind, SessionKind::ShortBreak);
+        QCOMPARE(workRecorded.count(), 1); // the calendar still hears about it
+    }
+
+    void refusedSessionsGoInBeforeTheNextOne()
+    {
+        recorder->setRetryIntervalForTesting(60 * 60 * 1000); // only the next phase end retries
+        failSessionInserts(true);
+        engine->start();
+        elapse(25 * 60);
+        QVERIFY(recorder->isSaveFailing());
+        failSessionInserts(false);
+        engine->start();
+        elapse(5 * 60);
+        QVERIFY(!recorder->isSaveFailing());
+        const QList<SessionRecord> r = all();
+        QCOMPARE(r.size(), 2);
+        QVERIFY(r.at(0).id < r.at(1).id);
+        QCOMPARE(r.at(0).kind, SessionKind::Work);
+    }
+
     void completedWorkPhaseIsRecorded()
     {
         engine->start();
@@ -352,7 +414,21 @@ private Q_SLOTS:
         QCOMPARE(sessions->recentNotes(2), (QStringList{QStringLiteral("Beta"), QStringLiteral("Gamma")}));
     }
 
-    void insertReportsTheNewRowId()
+    void recentNotesTreatAllSurroundingWhitespaceAlike()
+    {
+        // A note typed with a trailing newline or a tab is the same note (as in the statistics).
+        const QStringList notes = {QStringLiteral("Write report"), QStringLiteral("Write report\n"),
+                                   QStringLiteral("\tWrite report "), QStringLiteral("\r\n"), QStringLiteral("Read\u00a0")};
+        qint64 start = 1000;
+        for (const QString &note : notes) {
+            SessionRecord r = makeRecord(start += 1000);
+            r.note = note;
+            QVERIFY(sessions->insert(r));
+        }
+        QCOMPARE(sessions->recentNotes(5), (QStringList{QStringLiteral("Read"), QStringLiteral("Write report")}));
+    }
+
+        void insertReportsTheNewRowId()
     {
         qint64 first = 0;
         qint64 second = 0;

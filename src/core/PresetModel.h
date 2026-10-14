@@ -20,6 +20,11 @@ class PresetModel : public QAbstractListModel
     QML_SINGLETON
 
     Q_PROPERTY(int count READ count NOTIFY countChanged FINAL)
+    /// The limits the editor offers; values outside them are clamped (see PresetLimits).
+    Q_PROPERTY(int maxWorkMinutes READ maxWorkMinutes CONSTANT FINAL)
+    Q_PROPERTY(int maxBreakMinutes READ maxBreakMinutes CONSTANT FINAL)
+    Q_PROPERTY(int maxCycles READ maxCycles CONSTANT FINAL)
+    Q_PROPERTY(int maxNameLength READ maxNameLength CONSTANT FINAL)
     Q_PROPERTY(QString currentUuid READ currentUuid WRITE setCurrentUuid NOTIFY currentChanged FINAL)
     Q_PROPERTY(int currentIndex READ currentIndex NOTIFY currentChanged FINAL)
 
@@ -31,6 +36,11 @@ class PresetModel : public QAbstractListModel
     Q_PROPERTY(int currentWorkMinutes READ currentWorkMinutes NOTIFY currentChanged FINAL)
 
 public:
+    static int maxWorkMinutes() { return PresetLimits::MaxWorkSeconds / 60; }
+    static int maxBreakMinutes() { return PresetLimits::MaxBreakSeconds / 60; }
+    static int maxCycles() { return PresetLimits::MaxCycles; }
+    static int maxNameLength() { return PresetLimits::MaxNameLength; }
+
     enum Role {
         UuidRole = Qt::UserRole + 1,
         NameRole,
@@ -115,10 +125,13 @@ Q_SIGNALS:
     /// Content or structure changed through the editing API (create, update, duplicate,
     /// remove, reset, setOption). Listeners persist on this signal.
     void modified();
+    /// create() or update() had to bring `fields` (keys such as "workSeconds") into range.
+    void valuesAdjusted(const QString &uuid, const QStringList &fields);
 
 private:
     static TimerPreset makeDefaultPreset();
-    static void applyFields(TimerPreset &preset, const QVariantMap &fields);
+    /// Returns the keys whose value was out of range or unreadable and had to be adjusted.
+    static QStringList applyFields(TimerPreset &preset, const QVariantMap &fields);
     static QString summaryFor(const TimerPreset &preset);
     static QString detailedSummaryFor(const TimerPreset &preset);
     static QString iconNameFor(const TimerPreset &preset);

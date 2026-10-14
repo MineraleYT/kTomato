@@ -138,6 +138,27 @@ private Q_SLOTS:
                  QStringLiteral("Connected to https://cloud.example.org/x"));
     }
 
+    void testRedactsPasswordsWithSpacesAndTheCalendarAccount()
+    {
+        // A password with spaces is redacted whole, quoted or not.
+        for (const QString &input : {QStringLiteral("password=correct horse battery"),
+                                     QStringLiteral("{\"password\": \"correct horse battery\"}"),
+                                     QStringLiteral("password='correct horse battery' then")}) {
+            const QString redacted = Diagnostics::redact(input);
+            QVERIFY2(!redacted.contains(QStringLiteral("horse")) && !redacted.contains(QStringLiteral("battery")), qPrintable(redacted));
+        }
+
+        // The calendar account (its login can differ from $USER) and server are redacted too.
+        Diagnostics::setAccountRedactions({QStringLiteral("nc-login-42"), QStringLiteral("cloud.example.org")});
+        const QString redacted = Diagnostics::redact(
+            QStringLiteral("PUT https://cloud.example.org/remote.php/dav/calendars/nc-login-42/personal/x.ics: 500"));
+        QVERIFY2(!redacted.contains(QStringLiteral("nc-login-42")), qPrintable(redacted));
+        QVERIFY2(!redacted.contains(QStringLiteral("cloud.example.org")), qPrintable(redacted));
+        QVERIFY(redacted.contains(QStringLiteral("/remote.php/dav/calendars/")));
+        Diagnostics::setAccountRedactions({});
+        QVERIFY(Diagnostics::redact(QStringLiteral("cloud.example.org")).contains(QStringLiteral("cloud.example.org")));
+    }
+
     void testExportRejectsNonLocalUrls()
     {
         Diagnostics diag;

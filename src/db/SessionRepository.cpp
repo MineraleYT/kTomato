@@ -2,6 +2,7 @@
 #include "SessionRepository.h"
 
 #include <QLoggingCategory>
+#include <QSet>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -106,17 +107,26 @@ QStringList SessionRepository::recentNotes(int limit) const
 {
     QSqlDatabase db = QSqlDatabase::database(m_connection, false);
     QSqlQuery query(db);
-    // Trim and de-duplicate before LIMIT, and order each note by its most recent use.
-    query.prepare(QStringLiteral(
-        "SELECT TRIM(note) AS n FROM session WHERE TRIM(note) <> '' GROUP BY n ORDER BY MAX(id) DESC LIMIT ?"));
-    query.addBindValue(limit);
+    // SQLite's TRIM() only strips spaces, so notes are trimmed and de-duplicated here, the way
+    // the statistics group them (QString::trimmed()). Newest first: each note takes the place of
+    // its most recent use, and reading stops once `limit` distinct notes are found.
+    query.setForwardOnly(true);
+    query.prepare(QStringLiteral("SELECT note FROM session WHERE note <> '' ORDER BY id DESC"));
     QStringList result;
+    if (limit <= 0) {
+        return result;
+    }
     if (!query.exec()) {
         qCWarning(lcSessionRepo) << query.lastError().text();
         return result;
     }
-    while (query.next()) {
-        result.append(query.value(0).toString());
+    QSet<QString> seen;
+    while (result.size() < limit && query.next()) {
+        const QString note = query.value(0).toString().trimmed();
+        if (!note.isEmpty() && !seen.contains(note)) {
+            seen.insert(note);
+            result.append(note);
+        }
     }
     return result;
 }

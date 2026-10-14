@@ -283,6 +283,24 @@ private Q_SLOTS:
         QVERIFY(!state->enabled);
     }
 
+    void turningStartAtLoginOffAlsoTurnsStartMinimizedOff()
+    {
+        const auto settings = make();
+        settings->setStartAtLogin(true);
+        settings->setStartMinimized(true);
+        settings->setStartAtLogin(false);
+        QVERIFY(!settings->startMinimized());
+        QCOMPARE(stored("StartMinimized"), QStringLiteral("false"));
+
+        // It stays as chosen while the start at login stays on, and when removing the entry fails.
+        settings->setStartAtLogin(true);
+        settings->setStartMinimized(true);
+        state->failNext = true;
+        settings->setStartAtLogin(false);
+        QVERIFY(settings->startAtLogin());
+        QVERIFY(settings->startMinimized());
+    }
+
     void settingTheCurrentValueDoesNotTouchTheEntry()
     {
         const auto settings = make();
@@ -503,6 +521,40 @@ private Q_SLOTS:
         KLocalizedString::clearLanguages();
         QLocale::setDefault(QLocale::system());
         QStandardPaths::setTestModeEnabled(false);
+    }
+
+    void onlySoundNamesAndAbsolutePathsArePlayed()
+    {
+        for (const QString &good : {QStringLiteral("complete"), QStringLiteral("alarm-clock-elapsed"), QStringLiteral("bell.window"),
+                                    QStringLiteral("/usr/share/sounds/x.oga")}) {
+            QVERIFY2(AppSettings::isUsableSoundName(good), qPrintable(good));
+        }
+        for (const QString &bad : {QStringLiteral("../../../etc/passwd"), QStringLiteral("a/b"), QStringLiteral("-x"),
+                                   QStringLiteral("--file=/etc/passwd"), QStringLiteral(""), QStringLiteral(".hidden"),
+                                   QStringLiteral("/usr/share/../../etc/shadow")}) {
+            QVERIFY2(!AppSettings::isUsableSoundName(bad), qPrintable(bad));
+        }
+    }
+
+    void externalControlIsAllowedByDefaultAndRemembered()
+    {
+        {
+            const auto settings = make();
+            QVERIFY(settings->allowExternalControl());
+            QSignalSpy changed(settings.get(), &AppSettings::allowExternalControlChanged);
+            settings->setAllowExternalControl(false);
+            QCOMPARE(changed.count(), 1);
+        }
+        QCOMPARE(stored("AllowExternalControl"), QStringLiteral("false"));
+        QVERIFY(!make()->allowExternalControl());
+    }
+
+    void canberraGetsTheSoundNameAsOneOptionValue()
+    {
+        QCOMPARE(AppSettings::canberraArguments(QStringLiteral("complete")), QStringList{QStringLiteral("--id=complete")});
+        // A name read from the configuration that looks like an option stays a value.
+        QCOMPARE(AppSettings::canberraArguments(QStringLiteral("--file=/etc/passwd")),
+                 QStringList{QStringLiteral("--id=--file=/etc/passwd")});
     }
 };
 

@@ -43,8 +43,10 @@ if(BUILD_TESTING)
 endif()
 
 install(FILES data/io.github.mineraleyt.ktomato.desktop DESTINATION ${KDE_INSTALL_APPDIR})
-# KF6 KRunner only looks for D-Bus runners in share/krunner/dbusplugins.
-install(FILES data/io.github.mineraleyt.ktomato.runner.desktop DESTINATION ${KDE_INSTALL_DATADIR}/krunner/dbusplugins)
+# KF6 KRunner only looks for D-Bus runners in share/krunner/dbusplugins. The plugin version
+# comes from project() so it can never fall behind a release.
+configure_file(data/io.github.mineraleyt.ktomato.runner.desktop.in ${CMAKE_CURRENT_BINARY_DIR}/io.github.mineraleyt.ktomato.runner.desktop @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/io.github.mineraleyt.ktomato.runner.desktop DESTINATION ${KDE_INSTALL_DATADIR}/krunner/dbusplugins)
 # D-Bus activation: KRunner or a `qdbus` call can start kTomato (hidden in the tray) on demand.
 configure_file(data/io.github.mineraleyt.ktomato.service.in ${CMAKE_CURRENT_BINARY_DIR}/io.github.mineraleyt.ktomato.service @ONLY)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/io.github.mineraleyt.ktomato.service DESTINATION ${KDE_INSTALL_DBUSSERVICEDIR})
